@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+message EvaluationMessage{
+  float loss = 1;
+  float acc = 2;
+  float acc5 = 3;
+  float time = 4;
+  int32 eval_num = 5;
+}
+
+message TrainLog{
+  int32 epoch = 1;
+  int32 batch = 2; // current batch
+  int32 batch_num = 3; // number of batches in one epoch
+  float batch_loss = 4;
+  float batch_acc = 5;
+  float learning_rate = 6;
+  float time = 7;
+  EvaluationMessage eval_message = 8;
+}

@@ -1,10 +1,10 @@
 import tensorflow as tf
 
-from cnn.convnet.convnet import ConvNet
-from cnn.convnet.recorder import ConvRecorder
-from cnn.convnet.utils import init_tf_environ, get_path, before_save
-from cnn.data.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prep_data, BATCH_SIZE
-from cnn.generate_submission import lists2csv
+from convnet.core.convnet import ConvNet
+from convnet.core.recorder import ConvRecorder
+from convnet.utils import init_tf_environ, get_path, before_save
+from convnet.data.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prep_data, BATCH_SIZE
+from convnet.generate_submission import lists2csv
 
 FLAGS = tf.app.flags.FLAGS
 

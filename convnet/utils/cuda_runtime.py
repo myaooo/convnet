@@ -1,5 +1,34 @@
+import os
 import re
 import subprocess
+
+import tensorflow as tf
+
+
+_gpu_memory = 1.0
+
+
+def init_tf_environ(gpu_num=0, gpu_memory_fraction=1.0):
+    """
+    Init CUDA environments, which the number of gpu to use
+    :param gpu_num:
+    :return:
+    """
+    global _gpu_memory
+    _gpu_memory = gpu_memory_fraction
+    cuda_devices = ""
+    if gpu_num == 0:
+        print("Not using any gpu devices.")
+    else:
+        try:
+            best_gpus = pick_gpu_lowest_memory(gpu_num)
+            cuda_devices = ",".join([str(e) for e in best_gpus])
+            print("Using gpu device: {:s}".format(cuda_devices))
+        except:
+            cuda_devices = ""
+            print("Cannot find gpu devices!")
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
 
 # Nvidia-smi GPU memory parsing.
 # Tested on nvidia-smi 370.23

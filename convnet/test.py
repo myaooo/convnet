@@ -1,5 +1,5 @@
 from keras.preprocessing.image import ImageDataGenerator
-from cnn.data.preprocess import prep_data
+from convnet.data.preprocess import prep_data
 
 datagen = ImageDataGenerator(
         rotation_range=40,

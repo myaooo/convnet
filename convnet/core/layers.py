@@ -1,9 +1,9 @@
 import numpy as np
 import tensorflow as tf
 
-from cnn.convnet.sequential_net import SequentialNet, Layer
-from cnn.convnet.utils import get_activation, output_shape
-from cnn.convnet.config import data_type, weight_keys, bias_keys, local_keys, Float32
+from convnet.core.sequential_net import SequentialNet, Layer
+from convnet.core.utils import get_activation, output_shape
+from convnet.core.config import data_type, weight_keys, bias_keys, local_keys, Float32
 
 
 class InputLayer(Layer):
@@ -49,8 +49,8 @@ class AugmentLayer(Layer):
         prev_shape = self.prev.output_shape
         if train:
             if self.padding > 0:
-                input_ = tf.image.resize_image_with_crop_or_pad(
-                    input_, prev_shape[0] + self.padding, prev_shape[1] + self.padding)
+                input_ = tf.map_fn(lambda img: tf.image.resize_image_with_crop_or_pad(
+                    img, prev_shape[0] + self.padding, prev_shape[1] + self.padding), input_)
             if self.crop > 0:
                 input_ = tf.map_fn(lambda img: tf.random_crop(img, self.output_shape), input_)
             if self.horizontal_flip:
@@ -135,7 +135,7 @@ class ConvLayer(Layer):
         self.shape = self._filter_shape + [in_channels, out_channels]
 
         # Initialize Variables
-        with tf.variable_scope(name=self.name) as scope:
+        with tf.variable_scope(self.name) as scope:
             n = self.shape[0] * self.shape[1] * out_channels
             self.filters = tf.get_variable('filters', shape=self.shape, dtype=self.dtype,
                                            initializer=tf.random_normal_initializer(
@@ -302,7 +302,7 @@ class FullyConnectedLayer(Layer):
         self.bias = None
 
     def __call__(self, input_, train=True, name=''):
-        with tf.variable_scope(name=self.name, reuse=True):
+        with tf.variable_scope(self.name, reuse=True):
             input_ = super().__call__(input_)
             result = tf.matmul(input_, self.weights)
             if self.has_bias:
@@ -317,7 +317,7 @@ class FullyConnectedLayer(Layer):
         out_channels = self._out_channels
         self.shape = [in_channels, out_channels]
         # Initialize Variables
-        with tf.variable_scope(name=self.name) as scope:
+        with tf.variable_scope(self.name) as scope:
             self.weights = tf.get_variable('weights', shape=self.shape, dtype=self.dtype,
                                            initializer=tf.uniform_unit_scaling_initializer(factor=1.0,
                                                                                            dtype=self.dtype),

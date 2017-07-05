@@ -62,7 +62,7 @@ class ConvRecorder:
                         self.add_tensor_summary('bias', layer.bias)
             layer = layer.next
         self.summary = tf.summary.merge(self.summary_list)
-        convnet.after_one_batch(self)
+        convnet.after_one_step(self)
 
     def add_tensor_summary(self, name, tensor, description=None):
         """

@@ -1,10 +1,10 @@
 from collections import Counter
 
 import numpy as np
-from keras.preprocessing.image import ImageDataGenerator
+# from keras.preprocessing.image import ImageDataGenerator
 
-from cnn.data.preprocess import maybe_calculate
-from cnn.convnet.utils import get_path
+from convnet.core.preprocess import ImageDataGenerator
+from convnet.utils import get_path, maybe_calculate
 
 IMG_SIZE = (48, 48)
 BATCH_SIZE = 64
@@ -16,9 +16,7 @@ TEST_SIZE = VALID_SIZE = 3589
 
 
 SEED = None
-# class ImageDataGenerator(object):
-#
-#     def __init__(self, ):
+
 
 def preprocess_fer2013(file):
     print("Preprocessing...")
@@ -76,14 +74,14 @@ def generate_data(X, y, batch_size=BATCH_SIZE, train=True):
             # fill_mode='nearest')
             # # fill_mode='constant')
     # else:
-    datagen = ImageDataGenerator()
-    data_generator = datagen.flow(
+    # datagen = DataGenerator()
+    data_generator = ImageDataGenerator(
         X, y,
         batch_size=batch_size, shuffle=train)
     return data_generator
 
 
-def prepare_data_fer2013(train=True, valid=True, test=False):
+def prepare_data_fer2013(train=True, valid=True, test=False, batch_size=BATCH_SIZE):
     dataset = maybe_preprocess_fer2013()
     data_flows = {}
     for set_tag, need_set in zip(['train', 'valid', 'test'], [train, valid, test]):
@@ -92,7 +90,7 @@ def prepare_data_fer2013(train=True, valid=True, test=False):
         data_labels = dataset[set_tag]
         data = data_labels['data'].astype(np.float32) / 255 - 0.5
         labels = data_labels['labels']
-        data_flows[set_tag] = generate_data(data, labels, batch_size=BATCH_SIZE, train=set_tag==train)
+        data_flows[set_tag] = generate_data(data, labels, batch_size=batch_size, train=set_tag==train)
     return data_flows
 
 

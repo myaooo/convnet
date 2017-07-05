@@ -6,9 +6,8 @@ import math
 import os
 
 import tensorflow as tf
-import tensorflow.contrib.layers as tflayers
 
-from cnn.utils.cuda_runtime import pick_gpu_lowest_memory
+from convnet.utils import cuda_runtime as cuda
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -110,36 +109,6 @@ def get_optimizer(optimizer='Momentum'):
     return __str2optimizer['Momentum']
 
 
-def get_regularizer(regularizer, scale=0):
-    """
-    A utility function to get user specified regularizer
-    e.g.: get_regularizer('l2', 0.005)
-    :param regularizer: of function type (x): (func weights: scalar).
-        Take a scalar as input, return a function of type: take a Tensor as input and return a scalar
-    :param scale: a scalar
-    :return: a function of type: take a list of Tensor as input and return a scalar
-    """
-    if regularizer is None:
-        return lambda x: 0
-    _regularizer = _get_regularizer(regularizer, scale)
-    return lambda weight_list: tflayers.apply_regularization(_regularizer, weight_list)
-
-
-def _get_regularizer(regularizer, scale=0):
-    if callable(regularizer):
-        return regularizer(scale)
-    if isinstance(regularizer, list):
-        r_list = []
-        for reg in regularizer:
-            r_list.append(_get_regularizer(reg, scale))
-        return tflayers.sum_regularizer(r_list)
-
-    elif regularizer == 'l1':
-        return tflayers.l1_regularizer(scale)
-    elif regularizer == 'l2':
-        return tflayers.l2_regularizer(scale)
-
-
 def output_shape(input_shape, kernel_shape, strides, padding):
     """
     Given specific conditions calculate the output shape of a convolutional layer
@@ -160,27 +129,6 @@ def output_shape(input_shape, kernel_shape, strides, padding):
         return x, y
 
 
-def init_tf_environ(gpu_num=0):
-    """
-    Init CUDA environments, which the number of gpu to use
-    :param gpu_num:
-    :return:
-    """
-    cuda_devices = ""
-    if gpu_num == 0:
-        print("Not using any gpu devices.")
-    else:
-        try:
-            best_gpus = pick_gpu_lowest_memory(gpu_num)
-            cuda_devices = ",".join([str(e) for e in best_gpus])
-            print("Using gpu device: {:s}".format(cuda_devices))
-        except:
-            cuda_devices = ""
-            print("Cannot find gpu devices!")
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
-
-
 def config_proto():
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=cuda._gpu_memory)
     return tf.ConfigProto(device_count={"GPU": 1}, gpu_options=gpu_options, allow_soft_placement=True)

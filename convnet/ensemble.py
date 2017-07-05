@@ -2,11 +2,11 @@ import tensorflow as tf
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
-from cnn.data.preprocess import BATCH_SIZE
-from cnn.convnet.utils import init_tf_environ, get_path
-from cnn.data.preprocess import prep_data
-from cnn.generate_submission import generate_submission
-from cnn.model import build_model
+from convnet.data.preprocess import BATCH_SIZE
+from convnet.core.utils import init_tf_environ, get_path
+from convnet.data.preprocess import prep_data
+from convnet.generate_submission import generate_submission
+from convnet.model import build_model
 
 FLAGS = tf.app.flags.FLAGS
 

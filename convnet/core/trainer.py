@@ -209,6 +209,7 @@ class Trainer(object):
             logs = self.model.run(sess, batch_data, batch_label, self.train_ops)
             recorder.record_step(logs)
             if (step + 1) % (checkpoint_per_step) == 0:
+                valid_data_generator.reset()
                 valid_record = self.eval_model.eval(sess, valid_data_generator)
                 recorder.record_checkpoint(valid_record)
                 self._net.save()

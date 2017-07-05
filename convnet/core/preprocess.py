@@ -37,6 +37,9 @@ class DataGenerator(object):
     def __iter__(self):
         return self
 
+    def reset(self):
+        self.i = 0
+
 
 class ImageDataGenerator(DataGenerator):
     def __init__(self, X, Y, batch_size, epoch_num=math.inf, shuffle=False):

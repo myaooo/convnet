@@ -1,3 +1,4 @@
+import math
 from collections import Counter
 
 import numpy as np
@@ -76,7 +77,7 @@ def generate_data(X, y, batch_size=BATCH_SIZE, train=True):
     # else:
     # datagen = DataGenerator()
     data_generator = ImageDataGenerator(
-        X, y,
+        X, y, epoch_num=math.inf if train else 1,
         batch_size=batch_size, shuffle=train)
     return data_generator
 

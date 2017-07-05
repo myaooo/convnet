@@ -32,6 +32,7 @@ class DataGenerator(object):
             raise StopIteration()
         step = self.i % self._epoch_size
         start = step * self.batch_size
+        self.i += 1
         return self.X[self.indices[start:(start + self.batch_size)]]
 
     def __iter__(self):
@@ -55,6 +56,7 @@ class ImageDataGenerator(DataGenerator):
         step = self.i % self._epoch_size
         start = step * self.batch_size
         indices = self.indices[start:(start + self.batch_size)]
+        self.i += 1
         return self.X[indices], self.Y[indices]
 
     def __iter__(self):

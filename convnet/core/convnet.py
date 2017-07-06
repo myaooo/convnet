@@ -121,7 +121,7 @@ class ConvNet(SequentialNet, Classifier):
         print('compiling ' + self.name + ' model')
         with self.graph.as_default():
             with tf.variable_scope(self.name):
-                super(ConvNet, self).compile()
+                super().compile()
                 if train:
                     self.models['train'] = ConvModel(self, train, name='train')
                 if eval:

@@ -83,6 +83,8 @@ def model1(name=''):
     model.push_flatten_layer()
     model.push_fully_connected_layer(out_channels=NUM_LABELS, activation='linear')
 
+    model.loss_func = 'sparse_softmax'
+
     return model
 
 
@@ -115,6 +117,8 @@ def model2(name=''):
                           strides=[int(IMG_SIZE[0] / 8), int(IMG_SIZE[1] / 8)])
     model.push_flatten_layer()
     model.push_fully_connected_layer(out_channels=NUM_LABELS, activation='linear')
+
+    model.loss_func = 'sparse_softmax'
 
     return model
 
@@ -149,6 +153,8 @@ def model3(name=''):
     model.push_flatten_layer()
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
 
+    model.loss_func = 'sparse_softmax'
+
     return model
 
 
@@ -181,6 +187,9 @@ def model4(name=''):
                           strides=[int(IMG_SIZE[0] / 8), int(IMG_SIZE[1] / 8)])
     model.push_flatten_layer()
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
+
+    model.loss_func = 'sparse_softmax'
+    
     return model
 
 

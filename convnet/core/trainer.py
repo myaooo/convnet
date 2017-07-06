@@ -110,9 +110,11 @@ class TrainingRecorder(object):
         self.verbose_per_step = None
         if file_name is not None:
             before_save(file_name)
+        self.timer = None
 
     def start(self, verbose_per_step):
         self.verbose_per_step = verbose_per_step
+        self.timer = time.time()
 
     def record_step(self, logs):
         self.log_buffer.append(logs)

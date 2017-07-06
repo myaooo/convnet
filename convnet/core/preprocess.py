@@ -1,6 +1,7 @@
 """Preprocessing helpers for convnet"""
 
 import math
+from collections import Counter
 
 import numpy as np
 
@@ -27,13 +28,18 @@ class DataGenerator(object):
     def epoch_size(self):
         return self._epoch_size
 
-    def __next__(self):
+    def get_indices_of_next_batch(self):
         if self.i > self.epoch_num * self.epoch_size:
             raise StopIteration()
         step = self.i % self._epoch_size
         start = step * self.batch_size
+        indices = self.indices[start:(start + self.batch_size)]
         self.i += 1
-        return self.X[self.indices[start:(start + self.batch_size)]]
+        return indices
+
+    def __next__(self):
+        indices = self.get_indices_of_next_batch()
+        return self.X[indices]
 
     def __iter__(self):
         return self
@@ -47,17 +53,21 @@ class ImageDataGenerator(DataGenerator):
         super().__init__(X, batch_size, epoch_num=epoch_num, shuffle=shuffle)
         self.Y = Y
 
-    def __len__(self):
-        return self._epoch_size
-
     def __next__(self):
-        if self.i > self.epoch_num * self.epoch_size:
-            raise StopIteration()
-        step = self.i % self._epoch_size
-        start = step * self.batch_size
-        indices = self.indices[start:(start + self.batch_size)]
-        self.i += 1
+        indices = self.get_indices_of_next_batch()
         return self.X[indices], self.Y[indices]
 
-    def __iter__(self):
-        return self
+
+class RandomImageDataGenerator(ImageDataGenerator):
+    def __init__(self, X, Y, batch_size, epoch_num=math.inf, weight_func=None):
+        super().__init__(X, Y, batch_size, epoch_num=epoch_num, shuffle=False)
+        if weight_func is None:
+            weight_func = lambda size: 1/math.sqrt(size)
+        class_sizes = Counter(Y)
+        # classes = sorted(class_sizes)
+        # class_sizes = [class_sizes[c] for c in classes]
+        p = np.array([weight_func(class_sizes[y]) for y in Y])
+        self.p = p / p.sum()
+
+    def get_indices_of_next_batch(self):
+        return np.random.choice(self.indices, self.batch_size, p=self.p)

@@ -393,7 +393,7 @@ class ResLayer(Layer):
 
     def __call__(self, input_, train=True, name=''):
         assert self.is_compiled
-        with tf.variable_scope(self.name, reuse=True):
+        with tf.variable_scope(self.name):
             results = self.net1(input_, train, 'pipe')
             res = self.net2(input_, train, 'res')
             return res + results
@@ -424,8 +424,8 @@ class ResLayer(Layer):
                                        activation='linear', has_bias=False,
                                        name=self.net2.name + 'shortcut'))
 
-        for net in [self.net1, self.net2]:
-            with tf.variable_scope(net.name) as scope:
+        with tf.variable_scope(self.name) as scope:
+            for net in [self.net1, self.net2]:
                 net.compile()
         self._is_compiled = True
 
@@ -474,7 +474,7 @@ class ResBottleNeckLayer(ResLayer):
         if in_channels != out_channels:
             self.net2.append(ConvLayer(self.strides, out_channels, self.strides, activation='linear',
                                        has_bias=False, name=self.net2.name + 'shortcut'))
-        for net in [self.net1, self.net2]:
-            with tf.variable_scope(self.name) as scope:
+        with tf.variable_scope(self.name) as scope:
+            for net in [self.net1, self.net2]:
                 net.compile()
         self._is_compiled = True

@@ -4,7 +4,7 @@ from collections import Counter
 import numpy as np
 # from keras.preprocessing.image import ImageDataGenerator
 
-from convnet.core.preprocess import ImageDataGenerator
+from convnet.core.preprocess import ImageDataGenerator, RandomImageDataGenerator
 from convnet.utils import get_path, maybe_calculate
 
 IMG_SIZE = (48, 48)
@@ -61,24 +61,12 @@ def generate_data(X, y, batch_size=BATCH_SIZE, train=True):
     :param train
     :return: a keras generator
     """
-    # if train:
-    # # if False:
-        # datagen = ImageDataGenerator(
-            # rotation_range=20,
-            # width_shift_range=0.2,
-            # height_shift_range=0.2,
-            # # shear_range=0.2,
-            # zoom_range=0.2,
-            # horizontal_flip=True,
-            # # vertical_flip=True,
-            # # samplewise_center=True,
-            # fill_mode='nearest')
-            # # fill_mode='constant')
-    # else:
-    # datagen = DataGenerator()
-    data_generator = ImageDataGenerator(
-        X, y, epoch_num=math.inf if train else 1,
-        batch_size=batch_size, shuffle=train)
+    if train:
+        data_generator = RandomImageDataGenerator(
+            X, y, epoch_num=math.inf, batch_size=batch_size, weight_func=lambda size: 1/math.sqrt(size))
+    else:
+        data_generator = ImageDataGenerator(
+            X, y, epoch_num=1, batch_size=batch_size, shuffle=False)
     return data_generator
 
 

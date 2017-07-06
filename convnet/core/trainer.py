@@ -187,6 +187,7 @@ class Trainer(object):
     def update_lr(self, sess, step):
         new_lr = self._update_lr_func(step)
         sess.run(self.update_lr_op, {self.new_learning_rate: new_lr})
+        print("learning rate: {:.4f}".format(new_lr))
 
     def _prepare_training(self, log_keys):
         with self._net.graph.as_default():

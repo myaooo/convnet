@@ -1,6 +1,8 @@
 """
 parser.py
 
-provide parser to .yml model files
+Helpers that deal with model loading and freezing etc.
 """
+
+
 

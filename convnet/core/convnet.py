@@ -201,7 +201,8 @@ class ConvNet(SequentialNet, Classifier):
         assert self.is_compiled
         self.finalize()
         with self.graph.as_default():
-            return func(self.sess, *args, **kwargs)
+            with self.sess.as_default():
+                return func(self.sess, *args, **kwargs)
 
 
 class ConvModel(object):

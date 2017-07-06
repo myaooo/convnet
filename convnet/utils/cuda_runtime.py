@@ -11,7 +11,8 @@ _gpu_memory = 1.0
 def init_tf_environ(gpu_num=0, gpu_memory_fraction=1.0):
     """
     Init CUDA environments, which the number of gpu to use
-    :param gpu_num:
+    :param gpu_num: set the number of gpus to use
+    :param gpu_memory_fraction: set the fraction of gpu memory to use
     :return:
     """
     global _gpu_memory
@@ -29,6 +30,9 @@ def init_tf_environ(gpu_num=0, gpu_memory_fraction=1.0):
             print("Cannot find gpu devices!")
 
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
+
+    # Set logging level
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Nvidia-smi GPU memory parsing.
 # Tested on nvidia-smi 370.23

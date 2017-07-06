@@ -209,8 +209,8 @@ class ConvModel(object):
             self.prediction = tf.nn.softmax(self.logits)
             self.acc = top_k_acc(self.prediction, self.labels_node, 1, 'acc')
             self.acc3 = top_k_acc(self.prediction, self.labels_node, 3, 'acc')
-            self.loss_weights = tf.placeholder(dtype=data_type(), shape=[None])
             if train:
+                self.loss_weights = tf.placeholder(dtype=data_type(), shape=[None])
                 self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node, self.loss_weights))
             else:
                 self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node))

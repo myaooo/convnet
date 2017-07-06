@@ -214,14 +214,16 @@ class Trainer(object):
                max_steps: int, checkpoint_per_step: int, verbose_frequency: int,
                recorder: TrainingRecorder):
         recorder.start(checkpoint_per_step/verbose_frequency)
-        additional_feed = None
+        # additional_feed = None
         for step in range(max_steps):
             if self.need_stop:
                 return
             batch_data, batch_label = next(train_data_generator)
             if self._weight_func is not None:
                 loss_weights = np.array([self._weight_func(self.class_sizes[label]) for label in batch_label])
-                additional_feed = {self.model.loss_weights: loss_weights}
+            else:
+                loss_weights = np.ones((len(batch_label),), dtype=np.float32)
+            additional_feed = {self.model.loss_weights: loss_weights}
             logs = self.model.run(sess, batch_data, batch_label, self.train_ops, additional_feed)
             recorder.record_step(logs)
             if (step + 1) % (checkpoint_per_step) == 0:

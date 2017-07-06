@@ -219,7 +219,7 @@ def get_lr_protocol(protocol, epoch_size):
 def eval(model, data, batch_size):
     logs = model.eval(data, batch_size)
     print('[Test Set] Loss: {:.3f}, Acc: {:.2%}, eval num: {:d}'.format(
-        logs['loss'], logs['acc'], len(data) // batch_size * batch_size ))
+        logs['loss'], logs['acc'], len(data[0]) // batch_size * batch_size ))
 
 
 def train(model, train_data, valid_data, batch_size, epoch, protocol):

@@ -107,43 +107,48 @@ class TrainingRecorder(object):
         self.step = 0
         self.log_per_step = 0
         self.file_name = file_name
+        self.verbose_per_step = None
         if file_name is not None:
             before_save(file_name)
 
-    def reset_timer(self):
-        self.timer = time.time()
+    def start(self, verbose_per_step):
+        self.verbose_per_step = verbose_per_step
 
     def record_step(self, logs):
         self.log_buffer.append(logs)
         self.step += 1
+        if len(self.log_buffer) >= self.verbose_per_step:
+            record = {}
+            for key in self.log_keys:
+                record[key] = np.mean([v[key] for v in self.log_buffer])
+            record['time'] = time.time() - self.timer
+            self.training_logs.append(record)
+            self.log_buffer = []
+            self.print_record(self.step, record)
+            self.timer = time.time()
 
-    def record_checkpoint(self, valid_record=None):
-        record = {}
-        for key in self.log_keys:
-            record[key] = np.mean([v[key] for v in self.log_buffer])
-        record['time'] = time.time() - self.timer
-        self.training_logs.append(record)
+    def record_validation(self, valid_record):
         self.valid_logs.append(valid_record)
-        self.log_buffer = []
-        self.print_record(self.step, record, valid_record)
+        s = 'Validation'
+        for key, value in valid_record.items():
+            s += ' - {:s}: {:.4f}'.format(key, value)
+            if key == 'time':
+                s += 's'
+        self.output(s)
 
-    def print_record(self, step, record, valid_record=None):
+    def print_record(self, step, record):
         s = 'Step {:d}'.format(step)
         for key, value in record.items():
             s += ' - {:s}: {:.4f}'.format(key, value)
             if key == 'time':
                 s += 's'
-        if valid_record is not None:
-            s += '\nValidation'
-            for key, value in record.items():
-                s += ' - {:s}: {:.4f}'.format(key, value)
-                if key == 'time':
-                    s += 's'
+        self.output(s)
+
+    def output(self, s):
         print(s, flush=True)
         if self.file_name is not None:
             with open(self.file_name, 'a') as f:
                 f.write("{:s}\n".format(s))
-
 
 class Trainer(object):
     def __init__(self, net: ConvNet):
@@ -200,8 +205,9 @@ class Trainer(object):
     #     return self.model.run(sess, batch_data, batch_label, self.train_ops)
 
     def _train(self, sess, train_data_generator: DataGenerator, valid_data_generator: DataGenerator,
-               max_steps: int, checkpoint_per_step: int, recorder: TrainingRecorder):
-        recorder.reset_timer()
+               max_steps: int, checkpoint_per_step: int, verbose_frequency: int,
+               recorder: TrainingRecorder):
+        recorder.start(checkpoint_per_step/verbose_frequency)
         for step in range(max_steps):
             if self.need_stop:
                 return
@@ -211,16 +217,15 @@ class Trainer(object):
             if (step + 1) % (checkpoint_per_step) == 0:
                 valid_data_generator.reset()
                 valid_record = self.eval_model.eval(sess, valid_data_generator)
-                recorder.record_checkpoint(valid_record)
+                recorder.record_validation(valid_record)
                 self._net.save()
                 self.update_lr(sess, step)
-                recorder.reset_timer()
 
     def train(self, train_data_generator: DataGenerator, valid_data_generator: DataGenerator,
-              max_steps: int = 20, checkpoint_per_step: int = 500,
+              max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5,
               recorder: TrainingRecorder = None):
         if recorder is None:
             recorder = TrainingRecorder()
         self._prepare_training(recorder.log_keys)
         self._net.run_with_context(self._train, train_data_generator, valid_data_generator, max_steps,
-                                   checkpoint_per_step, recorder)
+                                   checkpoint_per_step, verbose_frequency, recorder)

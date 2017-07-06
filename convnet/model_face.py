@@ -189,7 +189,7 @@ def model4(name=''):
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
 
     model.loss_func = 'sparse_softmax'
-    
+
     return model
 
 
@@ -210,7 +210,7 @@ def train(model, train_data_generator, valid_data_generator, batch_size, epoch):
                               0.001 if step < 30 * N else 0.0001)
     trainer.set_optimizer('Momentum', 0.9)
     print("start training....")
-    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator, epoch*N, 200)
+    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator, epoch*N, 500, 5)
     model.save()
     log_step = N // batch_size // 10
     total_steps = len(losses) * log_step

@@ -201,7 +201,7 @@ def train(model, train_data_generator, valid_data_generator, batch_size, epoch):
                               0.001 if step < 30 * N else 0.0001)
     trainer.set_optimizer('Momentum', 0.9)
     print("start training....")
-    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator, epoch*N, 10)
+    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator, epoch*N, 200)
     model.save()
     log_step = N // batch_size // 10
     total_steps = len(losses) * log_step

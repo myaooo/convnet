@@ -91,7 +91,7 @@ def prepare_data_fer2013(train=True, valid=True, test=False, batch_size=BATCH_SI
         data_labels = dataset[set_tag]
         data = data_labels['data'].astype(np.float32) / 255 - 0.5
         labels = data_labels['labels']
-        data_flows[set_tag] = generate_data(data, labels, batch_size=batch_size, train=set_tag==train)
+        data_flows[set_tag] = generate_data(data, labels, batch_size=batch_size, train=set_tag=='train')
     return data_flows
 
 

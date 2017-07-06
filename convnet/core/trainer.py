@@ -1,15 +1,14 @@
 """Trainer class for training a convnet"""
 
 import time
-import sys
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.layers as tflayers
 
 from convnet.core.convnet import ConvNet, ConvModel
-from convnet.core.preprocess import DataGenerator
+from convnet.core.preprocess import DataGenerator, ImageDataGenerator
 from convnet.utils.io_utils import before_save
 from convnet.core.config import update_ops
 
@@ -170,6 +169,7 @@ class Trainer(object):
         self.loss = None
         self.max_epochs = None
         self.need_stop = False
+        self._weight_func = None
 
     def set_optimizer(self, optimizer, *args, **kwargs):
         self.optimizer = get_optimizer(optimizer)(self.learning_rate, *args, **kwargs)
@@ -180,6 +180,9 @@ class Trainer(object):
         else:
             assert callable(update_func), "update_func should be a callable function!"
             self._update_lr_func = update_func
+
+    def weighted_loss(self, weight_func):
+        self._weight_func = weight_func
 
     def add_regularizer(self, regularizer, scale):
         self.regularizers.append(get_regularizer(regularizer, scale))
@@ -211,11 +214,15 @@ class Trainer(object):
                max_steps: int, checkpoint_per_step: int, verbose_frequency: int,
                recorder: TrainingRecorder):
         recorder.start(checkpoint_per_step/verbose_frequency)
+        additional_feed = None
         for step in range(max_steps):
             if self.need_stop:
                 return
             batch_data, batch_label = next(train_data_generator)
-            logs = self.model.run(sess, batch_data, batch_label, self.train_ops)
+            if self._weight_func is not None:
+                loss_weights = np.array([self._weight_func(self.class_sizes[label]) for label in batch_label])
+                additional_feed = {self.model.loss_weights: loss_weights}
+            logs = self.model.run(sess, batch_data, batch_label, self.train_ops, additional_feed)
             recorder.record_step(logs)
             if (step + 1) % (checkpoint_per_step) == 0:
                 valid_data_generator.reset()
@@ -225,11 +232,14 @@ class Trainer(object):
                 self._net.save()
                 self.update_lr(sess, step)
 
-    def train(self, train_data_generator: DataGenerator, valid_data_generator: DataGenerator = None,
+    def train(self, train_data: tuple, valid_data: tuple = None, batch_size = 64,
               max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5,
               recorder: TrainingRecorder = None):
         if recorder is None:
             recorder = TrainingRecorder()
         self._prepare_training(recorder.log_keys)
+        train_data_generator = ImageDataGenerator(train_data[0], train_data[1], batch_size, shuffle=True)
+        valid_data_generator = ImageDataGenerator(valid_data[0], valid_data[1], batch_size, epoch_num=1)
+        self.class_sizes = Counter(train_data[1])
         self._net.run_with_context(self._train, train_data_generator, valid_data_generator, max_steps,
                                    checkpoint_per_step, verbose_frequency, recorder)

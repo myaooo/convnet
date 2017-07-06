@@ -27,7 +27,7 @@ __str2loss_func = {
     # Currently not supported
     # 'softmax': tf.nn.softmax_cross_entropy_with_logits,
     # 'sigmoid': tf.nn.sigmoid_cross_entropy_with_logits,
-    'sparse_softmax': tf.nn.sparse_softmax_cross_entropy_with_logits
+    'sparse_softmax': tf.losses.sparse_softmax_cross_entropy
 }
 
 __str2learning_rate = {
@@ -77,7 +77,7 @@ def get_loss_func(str='sparse_softmax'):
     if callable(str):
         return str
     if str in __str2loss_func:
-        return lambda logits, labels: __str2loss_func[str](labels=labels, logits=logits)
+        return lambda logits, labels, weights=1.0: __str2loss_func[str](labels=labels, logits=logits, weights=weights)
     print('No matching loss function found. Using sparse softmax cross entropy by default.\n')
     return __str2loss_func['sparse_softmax']
 

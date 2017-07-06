@@ -3,9 +3,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 from convnet.data.preprocess import BATCH_SIZE
-from convnet.core.utils import init_tf_environ, get_path
-from convnet.data.preprocess import prep_data
-from convnet.generate_submission import generate_submission
+from convnet.utils import init_tf_environ, get_path
+from convnet.preprocess import prepare_data_fer2013
 from convnet.model import build_model
 
 FLAGS = tf.app.flags.FLAGS
@@ -96,7 +95,7 @@ def ensemble_eval(predictions, labels):
 
 def main():
     init_tf_environ(gpu_num=1)
-    all_data = prep_data(test=True, all=FLAGS.train == 'all', shuffle=False)
+    all_data = prepare_data_fer2013(test=True)
     models = [int(num) for num in FLAGS.models.split(',')]
     names = FLAGS.names.split(',')
     dataset = FLAGS.dataset
@@ -110,9 +109,6 @@ def main():
         weights = ensemble_learn(all_data[0], cnns)
     d = 0 if dataset == 'train' else 1 if dataset == 'valid' else 2
     predictions = ensemble_predict(all_data[d], cnns, weights)
-    if dataset == 'test':
-        generate_submission(predictions[:, 1], get_path(FLAGS.out))
-        return
     ensemble_eval(predictions, all_data[d].y)
     
 

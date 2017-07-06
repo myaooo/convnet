@@ -22,6 +22,9 @@ tf.app.flags.DEFINE_boolean('train', True,
 tf.app.flags.DEFINE_boolean('test', True,
                             """Set this flag to run the test""")
 
+tf.app.flags.DEFINE_boolean('weighted_loss', False,
+                            """Whether to use weighted loss""")
+
 tf.app.flags.DEFINE_integer('checkpoint_per_step', 500,
                             """The interval for saving and validating model""")
 
@@ -37,6 +40,7 @@ def build_model(model_no, name):
     print("Building model", FLAGS.model)
     models = [model0, model1, model2, model3, model4]
     model = models[model_no](name)
+    model.loss_func = 'sparse_softmax'
     model.compile()
     return model
 
@@ -58,8 +62,6 @@ def model0(name=''):
                           strides=[int(IMG_SIZE[0] / 4), int(IMG_SIZE[1] / 4)])
     model.push_flatten_layer()
     model.push_fully_connected_layer(out_channels=NUM_LABELS, activation='linear')
-
-    model.loss_func = 'sparse_softmax'
 
     return model
 
@@ -91,8 +93,6 @@ def model1(name=''):
                           strides=[int(IMG_SIZE[0] / 4), int(IMG_SIZE[1] / 4)])
     model.push_flatten_layer()
     model.push_fully_connected_layer(out_channels=NUM_LABELS, activation='linear')
-
-    model.loss_func = 'sparse_softmax'
 
     return model
 
@@ -127,8 +127,6 @@ def model2(name=''):
     model.push_flatten_layer()
     model.push_fully_connected_layer(out_channels=NUM_LABELS, activation='linear')
 
-    model.loss_func = 'sparse_softmax'
-
     return model
 
 
@@ -161,8 +159,6 @@ def model3(name=''):
                           strides=[int(IMG_SIZE[0] / 8), int(IMG_SIZE[1] / 8)])
     model.push_flatten_layer()
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
-
-    model.loss_func = 'sparse_softmax'
 
     return model
 
@@ -197,8 +193,6 @@ def model4(name=''):
     model.push_flatten_layer()
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
 
-    model.loss_func = 'sparse_softmax'
-
     return model
 
 
@@ -222,34 +216,36 @@ def get_lr_protocol(protocol, epoch_size):
         raise ValueError("argument 'protocol' needs to be 'small' or 'medium' or 'large'!")
 
 
-def eval(model, data_generator):
-    loss, acc, acc3 = model.eval(model.sess, data_generator, BATCH_SIZE)
-    print('[Test Set] Loss: {:.3f}, Acc: {:.2%}, Acc3: {:.2%}, eval num: {:d}'.format(
-        loss, acc, acc3, data_generator.n // data_generator.batch_size * data_generator.batch_size))
+def eval(model, data, batch_size):
+    logs = model.eval(data, batch_size)
+    print('[Test Set] Loss: {:.3f}, Acc: {:.2%}, eval num: {:d}'.format(
+        logs['loss'], logs['acc'], len(data) // batch_size * batch_size ))
 
 
-def train(model, train_data_generator, valid_data_generator, batch_size, epoch, protocol):
+def train(model, train_data, valid_data, batch_size, epoch, protocol):
     print("prepare training....")
     epoch_size = N // batch_size
     trainer = Trainer(model)
     trainer.add_regularizer('l2', 1e-3)
     trainer.set_learning_rate(update_func=get_lr_protocol(protocol, epoch_size))
     trainer.set_optimizer('Momentum', 0.9)
+    if FLAGS.weighted_loss:
+        trainer.weighted_loss(lambda size: 1/(size**0.5))
     print("start training....")
-    trainer.train(train_data_generator, valid_data_generator,
+    trainer.train(train_data, valid_data, batch_size,
                   epoch * N // batch_size, FLAGS.checkpoint_per_step, 5)
 
 
 def main():
     init_tf_environ(gpu_num=1)
-    all_data = prepare_data_fer2013(train=FLAGS.train, valid=FLAGS.train, test=FLAGS.test, batch_size=BATCH_SIZE)
+    all_data = prepare_data_fer2013(train=FLAGS.train, valid=FLAGS.train, test=FLAGS.test)
     model = build_model(FLAGS.model, FLAGS.name)
     if FLAGS.train:
         train(model, all_data['train'], all_data['valid'], BATCH_SIZE, FLAGS.epoch, FLAGS.lr_protocol)
     else:
         model.restore()
     if FLAGS.test:
-        eval(model, all_data['test'])
+        eval(model, all_data['test'], BATCH_SIZE)
 
 
 if __name__ == '__main__':

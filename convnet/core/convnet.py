@@ -3,18 +3,14 @@
 # author: MING Yao
 #
 
-
-import math
-import time
 import os
 
 import numpy as np
 import tensorflow as tf
 
 from convnet.utils.io_utils import before_save, get_path
-from convnet.core.preprocess import DataGenerator
+from convnet.core.preprocess import DataGenerator, ImageDataGenerator
 from convnet.core.sequential_net import SequentialNet, Layer
-from convnet.core.classifier import Classifier
 from convnet.core.config import data_type, Int32, save_keys
 from convnet.core.utils import get_loss_func, config_proto
 from convnet.core.layers import InputLayer, ConvLayer, FullyConnectedLayer, BatchNormLayer, \
@@ -37,7 +33,7 @@ def error_rate(predictions, labels):
     return 100.0 - (100.0 * np.sum(np.argmax(predictions, 1) == labels) / predictions.shape[0])
 
 
-class ConvNet(SequentialNet, Classifier):
+class ConvNet(SequentialNet):
     """A wrapper class for conv net in tensorflow"""
 
     def __init__(self, name='convnet', dtype=data_type()):
@@ -85,8 +81,8 @@ class ConvNet(SequentialNet, Classifier):
     def push_conv_layer(self, filter_size, out_channels, strides, padding='SAME', activation='linear', has_bias=False):
         self.push_back(ConvLayer(filter_size, out_channels, strides, padding, activation, has_bias))
 
-    def push_pool_layer(self, type, kernel_size, strides, padding='SAME'):
-        self.push_back(PoolLayer(type, kernel_size, strides, padding))
+    def push_pool_layer(self, typename, kernel_size, strides, padding='SAME'):
+        self.push_back(PoolLayer(typename, kernel_size, strides, padding))
 
     def push_fully_connected_layer(self, out_channels, activation='linear', has_bias=True):
         self.push_back(FullyConnectedLayer(out_channels, activation, has_bias))
@@ -114,8 +110,8 @@ class ConvNet(SequentialNet, Classifier):
     def compile(self, train=True, eval=True):
         """
         Compile the model. Call before training or evaluating
-        :param eval: flag determine whether to compile evaluation nodes
-        :param test: flag determin whether to compile test node
+        :param train: flag determine whether to compile train nodes
+        :param eval: flag determine whether to compile eval nodes
         :return: None
         """
         print('compiling ' + self.name + ' model')
@@ -127,13 +123,14 @@ class ConvNet(SequentialNet, Classifier):
                 if eval:
                     self.models['eval'] = ConvModel(self, False, name='eval')
 
-    def eval(self, data_generator, keys=None):
+    def eval(self, data, batch_size, keys=None):
         """
         The evaluating function that will be called at the training API
-        :param data_generator: a data generator
+        :param data: a tuple (X, Y)
         :param keys: the target metrics, e.g.: ['loss', 'acc']
         :return: the required keys
         """
+        data_generator = ImageDataGenerator(data[0], data[1], batch_size, epoch_num=1, shuffle=False)
         return self.run_with_context(self.models['eval'].eval, data_generator, keys)
 
     def infer(self, data_generator=None, data=None, batch_size=64):
@@ -143,19 +140,10 @@ class ConvNet(SequentialNet, Classifier):
     def logdir(self):
         return self._logdir or get_path('./models', self.name)
 
-    # @property
-    # def train_size(self):
-    #     return self.train_data_generator.n // self.train_data_generator.batch_size * self.train_data_generator.batch_size
-    #
-    # @property
-    # def test_size(self):
-    #     return self.test_data_generator.n // self.test_data_generator.batch_size * self.test_data_generator.batch_size
-
     def save(self, path=None):
         """
         Save the trained model to disk
-        :param sess: the running Session
-        :param path: path
+        :param path: path to save the graph and variables
         :return: None
         """
         self.finalize()
@@ -182,7 +170,7 @@ class ConvNet(SequentialNet, Classifier):
     def finalize(self):
         """
         After all the computation ops are built in the graph, build a supervisor which implicitly finalize the graph
-        :return: None
+        :return: False if the model has already been finalized
         """
         if self.finalized:
             return False
@@ -221,11 +209,17 @@ class ConvModel(object):
             self.prediction = tf.nn.softmax(self.logits)
             self.acc = top_k_acc(self.prediction, self.labels_node, 1, 'acc')
             self.acc3 = top_k_acc(self.prediction, self.labels_node, 3, 'acc')
-            self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node))
+            self.loss_weights = tf.placeholder(dtype=data_type(), shape=[None])
+            if train:
+                self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node, self.loss_weights))
+            else:
+                self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node))
 
-    def run(self, sess: tf.Session, batch_data, batch_label, ops):
+    def run(self, sess: tf.Session, batch_data, batch_label, ops, additional_feed=None):
         feed_dict = {self.data_node: batch_data,
                      self.labels_node: batch_label}
+        if additional_feed is not None:
+            feed_dict.update(additional_feed)
         return sess.run(ops, feed_dict)
 
     def get_fetches(self, keys=None):

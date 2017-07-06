@@ -241,7 +241,7 @@ class FlattenLayer(Layer):
 
     def __call__(self, input_, train=True, name=''):
         with tf.variable_scope(self.name, reuse=True):
-            super(FlattenLayer, self).__call__(input_)
+            super().__call__(input_)
             shape = input_.get_shape().as_list()
             shape0 = shape[0] if shape[0] is not None else -1
             return tf.reshape(input_, [shape0, shape[1] * shape[2] * shape[3]], name='flatten' + name)
@@ -269,7 +269,7 @@ class PadLayer(Layer):
 
     def __call__(self, input_, train=True, name=''):
         with tf.variable_scope(self.name, reuse=True):
-            super(PadLayer, self).__call__(input_)
+            super().__call__(input_)
             return tf.pad(input_, self.paddings)
 
     def compile(self):

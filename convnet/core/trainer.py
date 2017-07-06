@@ -11,6 +11,7 @@ import tensorflow.contrib.layers as tflayers
 from convnet.core.convnet import ConvNet, ConvModel
 from convnet.core.preprocess import DataGenerator
 from convnet.utils.io_utils import before_save
+from convnet.core.config import update_ops
 
 DECAY_STEP = 10000
 
@@ -132,18 +133,16 @@ class TrainingRecorder(object):
     def record_validation(self, valid_record):
         self.valid_logs.append(valid_record)
         s = 'Validation'
-        for key, value in valid_record.items():
-            s += ' - {:s}: {:.4f}'.format(key, value)
-            if key == 'time':
-                s += 's'
+        for key in self.log_keys:
+            s += ' - {:s}: {:.4f}'.format(key, valid_record[key])
         self.output(s)
 
     def print_record(self, step, record):
         s = 'Step {:d}'.format(step)
-        for key, value in record.items():
-            s += ' - {:s}: {:.4f}'.format(key, value)
-            if key == 'time':
-                s += 's'
+        for key in self.log_keys:
+            s += ' - {:s}: {:.4f}'.format(key, record[key])
+        if 'time' in record:
+            s += ' - {:s}: {:.4f}s'.format('time', record['time'])
         self.output(s)
 
     def output(self, s):
@@ -163,7 +162,6 @@ class Trainer(object):
         self.optimizer = None
         self._net = net
         self.model = net.models['train']
-        self.eval_model = net.models.get('eval', None)
         assert self.model is not None, 'The model is not trainable! Check if "train" is set to True when compiling!'
         self.train_ops = {}
         self.log_keys = []
@@ -196,7 +194,9 @@ class Trainer(object):
             penalty = tflayers.apply_regularization(regularizer, tf.get_collection(tf.GraphKeys.WEIGHTS))
             self.loss = self.model.loss + penalty
 
-            optimizer_op = self.optimizer.minimize(self.loss, self.global_step)
+            update_op = tf.get_collection(update_ops)
+            with tf.control_dependencies(update_op):
+                optimizer_op = self.optimizer.minimize(self.loss, self.global_step)
 
         self.train_ops['optimize'] = optimizer_op
         self.train_ops.update(self.model.get_fetches(log_keys))
@@ -218,12 +218,13 @@ class Trainer(object):
             recorder.record_step(logs)
             if (step + 1) % (checkpoint_per_step) == 0:
                 valid_data_generator.reset()
-                valid_record = self.eval_model.eval(sess, valid_data_generator)
-                recorder.record_validation(valid_record)
+                if valid_data_generator is not None:
+                    valid_record = self._net.models['eval'].eval(sess, valid_data_generator)
+                    recorder.record_validation(valid_record)
                 self._net.save()
                 self.update_lr(sess, step)
 
-    def train(self, train_data_generator: DataGenerator, valid_data_generator: DataGenerator,
+    def train(self, train_data_generator: DataGenerator, valid_data_generator: DataGenerator = None,
               max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5,
               recorder: TrainingRecorder = None):
         if recorder is None:

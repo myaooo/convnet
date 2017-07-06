@@ -1,7 +1,6 @@
 import tensorflow as tf
 
 from convnet.core import ConvNet, Trainer
-from convnet.core.recorder import ConvRecorder
 from convnet.utils import init_tf_environ, get_path, before_save, lists2csv
 from convnet.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prepare_data_fer2013, BATCH_SIZE, TRAIN_SIZE
 # from convnet.generate_submission import lists2csv
@@ -18,6 +17,9 @@ tf.app.flags.DEFINE_string('name', '',
 
 tf.app.flags.DEFINE_string('task', 'train,test',
                            """set to "test" if you only want to test""")
+
+tf.app.flags.DEFINE_integer('checkpoint_per_step', 500,
+                            """The interval for saving and validating model""")
 
 # num_epochs = 45
 # EVAL_FREQUENCY = 1
@@ -37,13 +39,13 @@ def model0(name=''):
     model = ConvNet(name or 'Test')
     model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
-    model.push_conv_layer(filter_size=[3, 3], out_channels=32, strides=[1, 1], activation='linear', has_bias=False)
+    model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)
     model.push_batch_norm_layer(activation='relu')
     model.push_pool_layer('max', [2, 2], strides=[2, 2])
-    model.push_conv_layer(filter_size=[3, 3], out_channels=32, strides=[1, 1], activation='linear')
+    model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear')
     model.push_batch_norm_layer(activation='relu')
     model.push_pool_layer('max', kernel_size=[2, 2], strides=[2, 2])
-    model.push_conv_layer([3, 3], out_channels=64, strides=[1, 1], activation='linear')
+    model.push_conv_layer([3, 3], out_channels=32, strides=[1, 1], activation='linear')
     model.push_batch_norm_layer(activation='relu')
     model.push_pool_layer('avg', kernel_size=[int(IMG_SIZE[0] / 4), int(IMG_SIZE[1] / 4)],
                           strides=[int(IMG_SIZE[0] / 4), int(IMG_SIZE[1] / 4)])
@@ -210,7 +212,8 @@ def train(model, train_data_generator, valid_data_generator, batch_size, epoch):
                               0.001 if step < 30 * N else 0.0001)
     trainer.set_optimizer('Momentum', 0.9)
     print("start training....")
-    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator, epoch*N, 500, 5)
+    losses, valid_losses = trainer.train(train_data_generator, valid_data_generator,
+                                         epoch*N, FLAGS.checkpoint_per_step, 5)
     model.save()
     log_step = N // batch_size // 10
     total_steps = len(losses) * log_step

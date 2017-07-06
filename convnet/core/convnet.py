@@ -123,20 +123,18 @@ class ConvNet(SequentialNet, Classifier):
             with tf.variable_scope(self.name):
                 super().compile()
                 if train:
-                    self.models['train'] = ConvModel(self, train, name='train')
+                    self.models['train'] = ConvModel(self, True, name='train')
                 if eval:
                     self.models['eval'] = ConvModel(self, False, name='eval')
 
-    def eval(self, data_generator=None):
+    def eval(self, data_generator, keys=None):
         """
         The evaluating function that will be called at the training API
         :param data_generator: a data generator
-        :param data: data used to evaluate the model
-        :param labels: data's corresponding labels used to evaluate the model
-        :param batch_size: batch size
-        :return: loss accuracy and accuracy-5
+        :param keys: the target metrics, e.g.: ['loss', 'acc']
+        :return: the required keys
         """
-        return self.run_with_context(self.models['eval'].eval, data_generator)
+        return self.run_with_context(self.models['eval'].eval, data_generator, keys)
 
     def infer(self, data_generator=None, data=None, batch_size=64):
         return self.run_with_context(self.models['eval'].infer, data_generator, data, batch_size)

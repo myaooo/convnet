@@ -208,14 +208,14 @@ def get_lr_protocol(protocol, epoch_size):
             0.001 if step < 20 * epoch_size else 0.0001
     if protocol == 'medium':
         return lambda step: \
-            0.1 if step < 15 * epoch_size else \
-            0.01 if step < 25 * epoch_size else \
-            0.001 if step < 35 * epoch_size else 0.0001
+            0.1 if step < 20 * epoch_size else \
+            0.01 if step < 30 * epoch_size else \
+            0.001 if step < 40 * epoch_size else 0.0001
     if protocol == 'large':
         return lambda step: \
-            0.1 if step < 20 * epoch_size else \
-            0.01 if step < 35 * epoch_size else \
-            0.001 if step < 50 * epoch_size else 0.0001
+            0.1 if step < 30 * epoch_size else \
+            0.01 if step < 45 * epoch_size else \
+            0.001 if step < 60 * epoch_size else 0.0001
     else:
         raise ValueError("argument 'protocol' needs to be 'small' or 'medium' or 'large'!")
 

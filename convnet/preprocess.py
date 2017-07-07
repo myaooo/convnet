@@ -8,7 +8,7 @@ from convnet.core.preprocess import ImageDataGenerator, RandomImageDataGenerator
 from convnet.utils import get_path, maybe_calculate
 
 IMG_SIZE = (48, 48)
-BATCH_SIZE = 64
+# BATCH_SIZE = 64
 CHANNELS = 1
 NUM_LABELS = 7
 
@@ -50,24 +50,24 @@ def maybe_preprocess_fer2013():
     return dataset
 
 
-def generate_data(X, y, batch_size=BATCH_SIZE, train=True):
-    """
-    Using the returned data and label from maybe_preprocess / format_data,
-    return a keras data generator.
-    Only intended to use for training data
-    :param X: a 4D array, formatted data
-    :param y: a 1D array, label array
-    :param batch_size:
-    :param train
-    :return: a keras generator
-    """
-    if train:
-        data_generator = RandomImageDataGenerator(
-            X, y, epoch_num=math.inf, batch_size=batch_size, weight_func=lambda size: 1/math.sqrt(size))
-    else:
-        data_generator = ImageDataGenerator(
-            X, y, epoch_num=1, batch_size=batch_size, shuffle=False)
-    return data_generator
+# def generate_data(X, y, batch_size=BATCH_SIZE, train=True):
+#     """
+#     Using the returned data and label from maybe_preprocess / format_data,
+#     return a keras data generator.
+#     Only intended to use for training data
+#     :param X: a 4D array, formatted data
+#     :param y: a 1D array, label array
+#     :param batch_size:
+#     :param train
+#     :return: a keras generator
+#     """
+#     if train:
+#         data_generator = RandomImageDataGenerator(
+#             X, y, epoch_num=math.inf, batch_size=batch_size, weight_func=lambda size: 1/math.sqrt(size))
+#     else:
+#         data_generator = ImageDataGenerator(
+#             X, y, epoch_num=1, batch_size=batch_size, shuffle=False)
+#     return data_generator
 
 
 def prepare_data_fer2013(train=True, valid=True, test=False):

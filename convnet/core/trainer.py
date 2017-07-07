@@ -243,9 +243,10 @@ class Trainer(object):
         self._prepare_training(recorder.log_keys)
         train_data_generator = ImageDataGenerator(train_data[0], train_data[1], batch_size, shuffle=True)
         valid_data_generator = ImageDataGenerator(valid_data[0], valid_data[1], batch_size, epoch_num=1)
-        self.class_sizes = Counter(train_data[1])
-        self.class_sizes = np.array([self.class_sizes[c] for c in range(len(self.class_sizes))])
-        self.weights = np.array([self._weight_func(c) for c in self.class_sizes])
-        self.normalize_factor = np.sum(self.class_sizes) / np.sum(self.class_sizes * self.weights)
+        if self._weight_func is not None:
+            self.class_sizes = Counter(train_data[1])
+            self.class_sizes = np.array([self.class_sizes[c] for c in range(len(self.class_sizes))])
+            self.weights = np.array([self._weight_func(c) for c in self.class_sizes])
+            self.normalize_factor = np.sum(self.class_sizes) / np.sum(self.class_sizes * self.weights)
         self._net.run_with_context(self._train, train_data_generator, valid_data_generator, max_steps,
                                    checkpoint_per_step, verbose_frequency, recorder)

@@ -221,6 +221,7 @@ class Trainer(object):
             batch_data, batch_label = next(train_data_generator)
             if self._weight_func is not None:
                 loss_weights = np.array([self._weight_func(self.class_sizes[label]) for label in batch_label])
+                loss_weights = loss_weights * self.normalize_factor
             else:
                 loss_weights = np.ones((len(batch_label),), dtype=np.float32)
             additional_feed = {self.model.loss_weights: loss_weights}
@@ -243,5 +244,8 @@ class Trainer(object):
         train_data_generator = ImageDataGenerator(train_data[0], train_data[1], batch_size, shuffle=True)
         valid_data_generator = ImageDataGenerator(valid_data[0], valid_data[1], batch_size, epoch_num=1)
         self.class_sizes = Counter(train_data[1])
+        self.class_sizes = np.array([self.class_sizes[c] for c in range(len(self.class_sizes))])
+        self.weights = np.array([self._weight_func(c) for c in self.class_sizes])
+        self.normalize_factor = np.sum(self.class_sizes) / np.sum(self.class_sizes * self.weights)
         self._net.run_with_context(self._train, train_data_generator, valid_data_generator, max_steps,
                                    checkpoint_per_step, verbose_frequency, recorder)

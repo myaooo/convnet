@@ -361,7 +361,7 @@ class BatchNormLayer(Layer):
         super().__call__(input, train)
         reuse = True if self.n_calls > 1 else None
         with tf.variable_scope(self.name, reuse=reuse):
-            results = tf.contrib.layers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=True,
+            results = tf.contrib.layers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=False,
                                                    is_training=train, reuse=reuse, scope='bn_op',
                                                    variables_collections=local_keys)
             return get_activation(self.activation)(results)

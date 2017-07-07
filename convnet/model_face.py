@@ -136,7 +136,7 @@ def model3(name=''):
     model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     # model.push_conv_layer(filter_size=[7, 7], out_channels=64, strides=[1, 1], activation='linear', has_bias=False)
-    model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)
+    # model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)
     model.push_batch_norm_layer(activation='relu')
     # model.push_pool_layer('max', [2, 2], strides=[2, 2])
     model.push_res_layer([3, 3], 32, strides=[1, 1], activation='relu', activate_before_residual=False)
@@ -148,7 +148,7 @@ def model3(name=''):
         model.push_res_layer([3, 3], 64, strides=[1, 1], activation='relu')
     model.push_batch_norm_layer(activation='relu')
     model.push_res_layer([3, 3], 128, strides=[2, 2], activation='relu', activate_before_residual=False)
-    for i in range(7):
+    for i in range(5):
         model.push_res_layer([3, 3], 128, strides=[1, 1], activation='relu')
     model.push_batch_norm_layer(activation='relu')
     model.push_res_layer([3, 3], 256, strides=[2, 2], activation='relu', activate_before_residual=False)
@@ -157,6 +157,7 @@ def model3(name=''):
     model.push_batch_norm_layer(activation='relu')
     model.push_pool_layer('avg', kernel_size=[int(IMG_SIZE[0] / 8), int(IMG_SIZE[1] / 8)],
                           strides=[int(IMG_SIZE[0] / 8), int(IMG_SIZE[1] / 8)])
+    model.push_dropout_layer(0.8)
     model.push_flatten_layer()
     model.push_fully_connected_layer(NUM_LABELS, activation='linear', has_bias=True)
 

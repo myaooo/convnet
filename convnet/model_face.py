@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from convnet.core import ConvNet, Trainer
 from convnet.utils import init_tf_environ, get_path, before_save, lists2csv
-from convnet.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prepare_data_fer2013, BATCH_SIZE, TRAIN_SIZE
+from convnet.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prepare_data_fer2013, TRAIN_SIZE
 
 # from convnet.generate_submission import lists2csv
 
@@ -30,6 +30,9 @@ tf.app.flags.DEFINE_integer('checkpoint_per_step', 500,
 
 tf.app.flags.DEFINE_string('lr_protocol', 'medium',
                            """The protocol of learning rate during training""")
+
+tf.app.flags.DEFINE_integer('batch_size', 128,
+                            """batch size""")
 
 # num_epochs = 45
 # EVAL_FREQUENCY = 1
@@ -227,7 +230,7 @@ def train(model, train_data, valid_data, batch_size, epoch, protocol):
     print("prepare training....")
     epoch_size = N // batch_size
     trainer = Trainer(model)
-    trainer.add_regularizer('l2', 1e-3)
+    trainer.add_regularizer('l2', 1e-4)
     trainer.set_learning_rate(update_func=get_lr_protocol(protocol, epoch_size))
     trainer.set_optimizer('Momentum', 0.9)
     if FLAGS.weighted_loss:
@@ -242,11 +245,11 @@ def main():
     all_data = prepare_data_fer2013(train=FLAGS.train, valid=FLAGS.train, test=FLAGS.test)
     model = build_model(FLAGS.model, FLAGS.name)
     if FLAGS.train:
-        train(model, all_data['train'], all_data['valid'], BATCH_SIZE, FLAGS.epoch, FLAGS.lr_protocol)
+        train(model, all_data['train'], all_data['valid'], FLAGS.batch_size, FLAGS.epoch, FLAGS.lr_protocol)
     else:
         model.restore()
     if FLAGS.test:
-        eval(model, all_data['test'], BATCH_SIZE)
+        eval(model, all_data['test'], FLAGS.batch_size)
 
 
 if __name__ == '__main__':

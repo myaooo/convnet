@@ -411,13 +411,11 @@ class ResLayer(Layer):
             self.net1.append(BatchNormLayer(decay=self.decay, epsilon=self.epsilon,
                                             activation=self.activation, name=self.net1.name + '_bn0'))
         self.net1.append(ConvLayer(self._filter_size, out_channels, self.strides,
-                                   self.net1.name + '_conv1', activation='linear',
-                                   has_bias=False))
+                                   activation='linear', has_bias=False, name=self.net1.name + '_conv1'))
         self.net1.append(BatchNormLayer(decay=self.decay, epsilon=self.epsilon,
                                         activation=self.activation, name=self.net1.name + 'bn1'))
         self.net1.append(ConvLayer(self._filter_size, out_channels, [1, 1],
-                                   activation='linear', has_bias=False,
-                                   name=self.net1.name + '_conv2'))
+                                   activation='linear', has_bias=False, name=self.net1.name + '_conv2'))
 
         if in_channels != out_channels:
             self.net2.append(ConvLayer(self.strides, out_channels, self.strides,

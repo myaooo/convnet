@@ -16,7 +16,7 @@ def main():
     init_tf_environ(gpu_num=1)
     all_data = prep_data(test=True)
     model = build_model(FLAGS.model, FLAGS.name, *all_data[:2])
-    model.restore()
+    model.restore_weights()
     convnet_submission(model, all_data[2], get_path('submissions/' + model.name_or_scope + '/submission.csv'))
     # model.(BATCH_SIZE, 1, EVAL_FREQUENCY)
     # model.save()

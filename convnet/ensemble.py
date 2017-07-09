@@ -1,8 +1,9 @@
+import collections
 import tensorflow as tf
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
-from convnet.data.preprocess import BATCH_SIZE
+from convnet.core import ConvNet
 from convnet.utils import init_tf_environ, get_path
 from convnet.preprocess import prepare_data_fer2013
 from convnet.model import build_model
@@ -19,6 +20,15 @@ tf.app.flags.DEFINE_string('out', 'submissions/ensemble.csv',
                            """the path to the output""")
 tf.app.flags.DEFINE_boolean('lr', False,
                            """Whether using logistic regression as aggregate learner""")
+
+
+class EnsembleModel(object):
+    def __init__(self, models):
+        # check model legality
+        assert isinstance(models, collections.Iterable)
+        for model in models:
+            assert isinstance(model, ConvNet)
+        self.models = models
 
 
 def ensemble_predict(data_generator, models, weights=None):
@@ -103,7 +113,7 @@ def main():
     weights = None
     for model, name in zip(models, names):
         cnn = build_model(model, name, *all_data[:2])
-        cnn.restore()
+        cnn.restore_weights()
         cnns.append(cnn)
     if FLAGS.lr:
         weights = ensemble_learn(all_data[0], cnns)

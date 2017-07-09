@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from convnet.core import ConvNet, Trainer
-from convnet.utils import init_tf_environ, get_path, before_save, lists2csv
+from convnet.utils import init_tf_environ
 from convnet.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prepare_data_fer2013, TRAIN_SIZE
 
 # from convnet.generate_submission import lists2csv
@@ -247,7 +247,7 @@ def main():
     if FLAGS.train:
         train(model, all_data['train'], all_data['valid'], FLAGS.batch_size, FLAGS.epoch, FLAGS.lr_protocol)
     else:
-        model.restore()
+        model.restore_weights()
     if FLAGS.test:
         eval(model, all_data['test'], FLAGS.batch_size)
 

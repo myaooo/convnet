@@ -14,31 +14,6 @@ from convnet.core.config import update_ops
 
 DECAY_STEP = 10000
 
-# __str2learning_rate = {
-#     'exponential': tf.train.exponential_decay,
-#     'inverse_time': tf.train.inverse_time_decay,
-#     'natural_exp': tf.train.natural_exp_decay,
-#     'piecewise_constant': tf.train.piecewise_constant,
-#     'polynomial_decay': tf.train.polynomial_decay
-# }
-#
-#
-# def get_learning_rate(update_func, **kwargs):
-#     if callable(update_func):
-#         return update_func(kwargs['global_step'])
-#     if update_func == 'piecewise_constant':
-#         kwargs['x'] = kwargs.pop('global_step')
-#         kwargs.pop('decay_steps')
-#         kwargs.pop('learning_rate')
-#     if update_func in __str2learning_rate:
-#         return __str2learning_rate[update_func](**kwargs)
-#     try:
-#         func = eval(update_func)
-#         return func
-#     except:
-#         print('No matching learning rate decay scheme found. Using constant scalar learning rate.\n')
-#         return kwargs['learning_rate']
-
 
 __str2optimizer = {
     'GradientDescent': tf.train.GradientDescentOptimizer,
@@ -152,11 +127,10 @@ class TrainingRecorder(object):
 
 class Trainer(object):
     def __init__(self, net: ConvNet):
-        with net.graph.as_default():
-            self.learning_rate = tf.Variable(0., trainable=False)
-            self.new_learning_rate = tf.Variable(0., trainable=False)
-            self.update_lr_op = tf.assign(self.learning_rate, self.new_learning_rate)
-            self.global_step = tf.Variable(0, trainable=False)
+        self.learning_rate = None
+        self.new_learning_rate = None
+        self.update_lr_op = None
+        self.global_step = None
         self._update_lr_func = None
         self.optimizer = None
         self._net = net
@@ -164,15 +138,15 @@ class Trainer(object):
         assert self.model is not None, 'The model is not trainable! Check if "train" is set to True when compiling!'
         self.train_ops = {}
         self.log_keys = []
-        self.train_logs = defaultdict(list)
         self.regularizers = []
-        self.loss = None
+        # self.loss = None
         self.max_epochs = None
         self.need_stop = False
         self._weight_func = None
+        self.is_restored = False
 
     def set_optimizer(self, optimizer, *args, **kwargs):
-        self.optimizer = get_optimizer(optimizer)(self.learning_rate, *args, **kwargs)
+        self.optimizer = lambda lr: get_optimizer(optimizer)(lr, *args, **kwargs)
 
     def set_learning_rate(self, learning_rate=0.1, update_func=None):
         if update_func is None:
@@ -192,28 +166,42 @@ class Trainer(object):
         sess.run(self.update_lr_op, {self.new_learning_rate: new_lr})
         print("learning rate: {:.4f}".format(new_lr))
 
-    def _prepare_training(self, log_keys):
+    def _prepare_training(self):
+        if self.is_restored:
+            return
         with self._net.graph.as_default():
-            regularizer = tflayers.sum_regularizer(regularizer_list=self.regularizers)
-            penalty = tflayers.apply_regularization(regularizer, tf.get_collection(tf.GraphKeys.WEIGHTS))
-            self.loss = self.model.loss + penalty
+            with tf.name_scope("training"):
+                self.learning_rate = tf.Variable(0., trainable=False, name='learning_rate')
+                self.new_learning_rate = tf.Variable(0., trainable=False, name='new_learning_rate')
+                self.update_lr_op = tf.assign(self.learning_rate, self.new_learning_rate, name='update_lr_op')
+                self.global_step = tf.Variable(0, trainable=False, name='global_step')
+                regularizer = tflayers.sum_regularizer(regularizer_list=self.regularizers)
+                penalty = tflayers.apply_regularization(regularizer, tf.get_collection(tf.GraphKeys.WEIGHTS))
+                loss = tf.add(self.model.loss, penalty, name='train_loss')
 
-            update_op = tf.get_collection(update_ops)
-            with tf.control_dependencies(update_op):
-                optimizer_op = self.optimizer.minimize(self.loss, self.global_step)
+                update_op = tf.get_collection(update_ops)
+                with tf.control_dependencies(update_op):
+                    self.optimize_op = self.optimizer(self.learning_rate)\
+                        .minimize(loss, self.global_step, name="train_op")
 
-        self.train_ops['optimize'] = optimizer_op
-        self.train_ops.update(self.model.get_fetches(log_keys))
-        self.need_stop = False
-
-    # def _train_one_step(self, sess, train_data_generator) -> dict:
-    #     batch_data, batch_label = next(train_data_generator)
-    #     return self.model.run(sess, batch_data, batch_label, self.train_ops)
+    def restore_from_graph(self):
+        with self._net.graph as graph:
+            self.learning_rate = graph.get_tensor_by_name("training/learning_rate:0")
+            self.new_learning_rate = graph.get_tensor_by_name("training/new_learning_rate:0")
+            self.update_lr_op = graph.get_tensor_by_name("training/update_lr_op:0")
+            self.global_step = graph.get_tensor_by_name("training/learning_rate:0")
+            self.train_ops['optimize'] = graph.get_operation_by_name("training/train_op")
 
     def _train(self, sess, train_data_generator: DataGenerator, valid_data_generator: DataGenerator,
                max_steps: int, checkpoint_per_step: int, verbose_frequency: int,
                recorder: TrainingRecorder):
-        recorder.start(checkpoint_per_step/verbose_frequency)
+        if recorder is None:
+            recorder = TrainingRecorder()
+        self.train_ops['optimize'] = self.optimize_op
+        self.train_ops.update(self.model.get_fetches(recorder.log_keys))
+        self.need_stop = False
+        self.is_prepared = True
+        recorder.start(checkpoint_per_step//verbose_frequency)
         # additional_feed = None
         for step in range(max_steps):
             if self.need_stop:
@@ -232,15 +220,24 @@ class Trainer(object):
                 if valid_data_generator is not None:
                     valid_record = self._net.models['eval'].eval(sess, valid_data_generator)
                     recorder.record_validation(valid_record)
-                self._net.save()
+                self._net.save(global_step=self.global_step)
                 self.update_lr(sess, step)
 
-    def train(self, train_data: tuple, valid_data: tuple = None, batch_size = 64,
+    def train(self, train_data: tuple, valid_data: tuple = None, batch_size: int = 64,
               max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5,
               recorder: TrainingRecorder = None):
-        if recorder is None:
-            recorder = TrainingRecorder()
-        self._prepare_training(recorder.log_keys)
+        """
+        main api to train the model
+        :param train_data: training data. A tuple (X, Y)
+        :param valid_data: validation data. A tuple (X, Y)
+        :param batch_size: batch size. int
+        :param max_steps: the steps to run the training. int
+        :param checkpoint_per_step: specify how often to save a checkpoint. int
+        :param verbose_frequency: specify how often between checkpoint to verbose. int
+        :param recorder: Optional
+        :return:
+        """
+        self._prepare_training()
         train_data_generator = ImageDataGenerator(train_data[0], train_data[1], batch_size, shuffle=True)
         valid_data_generator = ImageDataGenerator(valid_data[0], valid_data[1], batch_size, epoch_num=1)
         if self._weight_func is not None:

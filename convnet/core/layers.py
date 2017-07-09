@@ -1,9 +1,53 @@
+import math
 import numpy as np
 import tensorflow as tf
 
 from convnet.core.sequential_net import SequentialNet, Layer
-from convnet.core.utils import get_activation, output_shape
 from convnet.core.config import data_type, weight_keys, bias_keys, local_keys, Float32
+
+
+__str2activation = {
+    'linear': lambda x: x,
+    'relu': lambda x: tf.nn.relu(x, name='relu'),
+    'relu6': lambda x: tf.nn.relu6(x, name='relu6'),
+    'elu': lambda x: tf.nn.elu(x, name='elu'),
+    'tan': lambda x: tf.tanh(x, name='tanh'),
+    'sigmoid': lambda x: tf.sigmoid(x, name='sigmoid'),
+}
+
+
+def get_activation(str='relu'):
+    """
+     A utility function to get specified activation function
+    :param str: a string which should be among the keys of __str2activation, or a user defined callable function
+    :return: a callable function
+    """
+    if callable(str):
+        return str
+    if str in __str2activation:
+        return __str2activation[str]
+    print('No matching activation function found. Using ReLU by default.\n')
+    return __str2activation['relu']
+
+
+def output_shape(input_shape, kernel_shape, strides, padding):
+    """
+    Given specific conditions calculate the output shape of a convolutional layer
+    :param input_shape: input shape, e.g.: [28, 28, 3]
+    :param kernel_shape: kernel/filter shape, e.g.: [2,2]
+    :param strides: the marching strides shape. e.g.: [1,2,2,1]
+    :param padding: a tring indicating padding type. 'SAME' or 'VALID'
+    :return: the output shape
+    """
+    if padding == 'SAME':
+        x = math.ceil(input_shape[0] / float(strides[1]))
+        y = math.ceil(input_shape[1] / float(strides[2]))
+        return x, y
+
+    elif padding == 'VALID':
+        x = math.ceil((input_shape[0] - kernel_shape[0] + 1) / float(strides[1]))
+        y = math.ceil((input_shape[1] - kernel_shape[1] + 1) / float(strides[2]))
+        return x, y
 
 
 class InputLayer(Layer):
@@ -17,7 +61,7 @@ class InputLayer(Layer):
         super().__init__('input', 'input')
         self.dshape = dshape
 
-    def __call__(self, input_, train=False, name=''):
+    def __call__(self, input_, train=False):
         super().__call__(input_)
         return input_
 
@@ -45,7 +89,7 @@ class AugmentLayer(Layer):
         self.per_image_standardize = per_image_standardize
         self._shape = None
 
-    def __call__(self, input_, train=False, name=''):
+    def __call__(self, input_, train=False):
         prev_shape = self.prev.output_shape
         if train:
             if self.padding > 0:
@@ -118,10 +162,10 @@ class ConvLayer(Layer):
         self._is_compiled = False
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
-            results = tf.nn.conv2d(input_, self.filters, self.strides, self.padding, name='conv' + name)
+            results = tf.nn.conv2d(input_, self.filters, self.strides, self.padding, name='conv')
             if self.has_bias:
                 results = results + self.bias
             return self.activation(results)
@@ -184,10 +228,10 @@ class PoolLayer(Layer):
         self.padding = padding
         self.name = name
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
-            return self.pool_func(input_, self._filter_shape, self.strides, self.padding, name=self.type + name)
+            return self.pool_func(input_, self._filter_shape, self.strides, self.padding, name=self.type)
 
     def compile(self):
         return
@@ -212,13 +256,13 @@ class DropoutLayer(Layer):
         self.keep_prob = keep_prob
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         if not train:
             return input_
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
             keep_prob = tf.constant(self.keep_prob, dtype=Float32, name='keep_prob')
-            return tf.nn.dropout(input_, keep_prob, name='dropout' + name)
+            return tf.nn.dropout(input_, keep_prob, name='dropout')
 
     def compile(self):
         return
@@ -239,12 +283,12 @@ class FlattenLayer(Layer):
         super().__init__('flatten', name)
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
             shape = input_.get_shape().as_list()
             shape0 = shape[0] if shape[0] is not None else -1
-            return tf.reshape(input_, [shape0, shape[1] * shape[2] * shape[3]], name='flatten' + name)
+            return tf.reshape(input_, [shape0, shape[1] * shape[2] * shape[3]], name='flatten')
 
     def compile(self):
         return
@@ -267,7 +311,7 @@ class PadLayer(Layer):
         self._output_shape = None
         self.paddings = paddings
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
             return tf.pad(input_, self.paddings)
@@ -301,7 +345,7 @@ class FullyConnectedLayer(Layer):
         self.weights = None
         self.bias = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             input_ = super().__call__(input_)
             result = tf.matmul(input_, self.weights)
@@ -357,7 +401,7 @@ class BatchNormLayer(Layer):
             self._output_shape = self.prev.output_shape
         return self._output_shape
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         super().__call__(input, train)
         reuse = True if self.n_calls > 1 else None
         with tf.variable_scope(self.name, reuse=reuse):
@@ -391,11 +435,11 @@ class ResLayer(Layer):
         self.net1 = SequentialNet(name)
         self.net2 = SequentialNet(name + '_residue')
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         assert self.is_compiled
         with tf.variable_scope(self.name):
-            results = self.net1(input_, train, 'pipe')
-            res = self.net2(input_, train, 'res')
+            results = self.net1(input_, train)
+            res = self.net2(input_, train)
             return res + results
 
     def compile(self):

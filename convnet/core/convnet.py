@@ -36,7 +36,7 @@ def error_rate(predictions, labels):
 class ConvNet(SequentialNet):
     """A wrapper class for conv net in tensorflow"""
 
-    def __init__(self, name='convnet', dtype=data_type()):
+    def __init__(self, name='convnet', dtype=data_type(), graph=None, logdir=None):
         super(ConvNet, self).__init__(name)
         self.dtype = dtype
         # array of layer names
@@ -46,11 +46,12 @@ class ConvNet(SequentialNet):
 
         self._loss_func = None
 
-        self.graph = tf.Graph()
-        self._logdir = None
+        self.graph = graph or tf.Graph()
+        self._logdir = logdir
         self._saver = None
         self.finalized = False
         self._init_op = None
+        self.trainer = None
 
     @property
     def loss_func(self):
@@ -61,6 +62,11 @@ class ConvNet(SequentialNet):
         self._loss_func = get_loss_func(new_loss_func)
 
     def push_back(self, layer):
+        """
+        Push a layer to the back of the conv net.
+        :param layer: a Layer
+        :return: None
+        """
         assert isinstance(layer, Layer), "layer must be instance of Layer, but got " + str(type(layer))
         layer_name = str(layer.__class__.__name__) + str(self.size)
         self.layer_names.append(layer_name)
@@ -116,18 +122,30 @@ class ConvNet(SequentialNet):
         """
         print('compiling ' + self.name + ' model')
         with self.graph.as_default():
-            with tf.variable_scope(self.name):
-                super().compile()
-                if train:
-                    self.models['train'] = ConvModel(self, True, name='train')
-                if eval:
-                    self.models['eval'] = ConvModel(self, False, name='eval')
+            # with tf.variable_scope(self.name):
+            super().compile()
+            if train:
+                self.models['train'] = ConvModel(self, True, name='train').compile()
+            if eval:
+                self.models['eval'] = ConvModel(self, False, name='eval').compile()
+            # self.finalize()
+        return self
+
+    def compile_from_meta(self, path=None):
+        print('compiling ' + self.name + ' model from meta')
+        self.restore_graph_from_meta(path)
+
+        self.restore_weights(path)
+
+    # def fit(self, train_data: tuple, valid_data: tuple = None, batch_size: int = 64,
+    #         max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5):
+    #     self.trainer =
 
     def eval(self, data, batch_size, keys=None):
         """
         The evaluating function that will be called at the training API
         :param data: a tuple (X, Y)
-        :param keys: the target metrics, e.g.: ['loss', 'acc']
+        :param keys: the target metrics to be evaluated, e.g.: ['loss', 'acc']
         :return: the required keys
         """
         data_generator = ImageDataGenerator(data[0], data[1], batch_size, epoch_num=1, shuffle=False)
@@ -140,80 +158,118 @@ class ConvNet(SequentialNet):
     def logdir(self):
         return self._logdir or get_path('./models', self.name)
 
-    def save(self, path=None):
+    def save(self, path=None, global_step=None):
         """
         Save the trained model to disk
         :param path: path to save the graph and variables
+        :param global_step: additional identifier for the checkpoint file
         :return: None
         """
-        self.finalize()
+        # self.finalize()
         path = path if path is not None else os.path.join(self.logdir, 'model')
         before_save(path)
-        self._saver.save(self.sess, path)
+        self._saver.save(self.sess, path, global_step)
         print("Model variables saved to {}.".format(get_path(path, absolute=True)))
 
-    def restore(self, path=None):
-        self.finalize()
+    def restore_weights(self, path=None):
+        self._finalize()
         path = path if path is not None else self.logdir
         checkpoint = tf.train.latest_checkpoint(path)
+        if checkpoint is None:
+            raise FileNotFoundError('Cannot find model checkpoint from "{:s}"'.format(path))
         self._saver.restore(self.sess, checkpoint)
-        print("Model variables restored from {}.".format(get_path(path, absolute=True)))
+        print("Model variables restored from {}.".format(get_path(checkpoint, absolute=True)))
+
+    def restore_graph_from_meta(self, path=None):
+        path = path or self.logdir
+        checkpoint = tf.train.latest_checkpoint(path)
+        if checkpoint is None:
+            raise FileNotFoundError('Cannot find model checkpoint from "{:s}"'.format(path))
+        with self.graph.as_default():
+            self._saver = tf.train.import_meta_graph(checkpoint + '.meta')
+        print("Model graph restored from {}.".format(get_path(checkpoint, absolute=True)))
+        self.finalized = True
 
     @property
     def sess(self):
-        self.finalize()
+        self._finalize()
         if self._sess is None or self._sess._closed:
             self._sess = tf.Session(graph=self.graph, config=config_proto())
-            self._sess.run(self._init_op)
+            if self._init_op is not None:
+                self._sess.run(self._init_op)
         return self._sess
 
-    def finalize(self):
+    def _finalize(self):
         """
-        After all the computation ops are built in the graph, build a supervisor which implicitly finalize the graph
-        :return: False if the model has already been finalized
+        After all the ops and variables are claimed in the graph, explicitly finalize the graph
+        :return: None
         """
+        # make sure the following code will be run only once
         if self.finalized:
-            return False
+            return
         with self.graph.as_default():
-            self._init_op = tf.global_variables_initializer()
+            self._init_op = tf.variables_initializer(tf.global_variables(), name='init')
             variables = []
             for key in save_keys:
                 variables += tf.get_collection(key)
             self._saver = tf.train.Saver(variables)
         self.finalized = True
-        # self.graph.finalize()
-        # self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
-        return True
 
     def run_with_context(self, func, *args, **kwargs):
         assert self.is_compiled
-        self.finalize()
+        # self.finalize()
         with self.graph.as_default():
             with self.sess.as_default():
                 return func(self.sess, *args, **kwargs)
+
+    def _assert_compiled(self):
+        assert self.is_compiled, "Make sure you explicitly "
 
 
 class ConvModel(object):
     """
     A model instance, a class that wraps the result of the compilation of ConvNet
     """
-    def __init__(self, model: ConvNet, train: bool = False, batch_size: int = None, name=''):
-        self._model = model
+    def __init__(self, net: ConvNet, train: bool = False, batch_size: int = None, name=''):
+        self._net = net
         self.train = train
         self.batch_size = batch_size
         self.name = name
-        with tf.name_scope(name):
-            self.data_node = tf.placeholder(data_type(), [None] + model.front.output_shape, 'data')
-            self.labels_node = tf.placeholder(Int32, [None, ], 'labels')
-            self.logits = model(self.data_node, train=train, name=name)
-            self.prediction = tf.nn.softmax(self.logits)
-            self.acc = top_k_acc(self.prediction, self.labels_node, 1, 'acc')
-            self.acc3 = top_k_acc(self.prediction, self.labels_node, 3, 'acc')
-            if train:
-                self.loss_weights = tf.placeholder(dtype=data_type(), shape=[None])
-                self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node, self.loss_weights))
+        self.is_compiled = False
+
+    def compile(self):
+        if self.is_compiled:
+            return
+        with tf.name_scope(self.name):
+            self.data_node = tf.placeholder(data_type(), [None] + self._net.front.output_shape, name='data')
+            self.labels_node = tf.placeholder(Int32, [None, ], name='label')
+            logits = self._net(self.data_node, train=self.train)
+            self.prediction = tf.nn.softmax(logits, name='prediction')
+            self.acc = top_k_acc(self.prediction, self.labels_node, 1, name='acc')
+            self.acc3 = top_k_acc(self.prediction, self.labels_node, 3, name='acc3')
+            if self.train:
+                self.loss_weights = tf.placeholder(dtype=data_type(), shape=[None], name='loss_weights')
+                self.loss = tf.reduce_mean(self._net.loss_func(logits, self.labels_node, self.loss_weights),
+                                           name='loss')
             else:
-                self.loss = tf.reduce_mean(model.loss_func(self.logits, self.labels_node))
+                self.loss = tf.reduce_mean(self._net.loss_func(logits, self.labels_node),
+                                           name='loss')
+        self.is_compiled = True
+        return self
+
+    def restore_from_graph(self, graph):
+        if self.is_compiled:
+            return
+        self.data_node = graph.get_tensor_by_name(self.name + '/data')
+        self.labels_node = graph.get_tensor_by_name(self.name + '/label')
+        self.prediction = graph.get_tensor_by_name(self.name + '/prediction')
+        self.acc = graph.get_tensor_by_name(self.name + '/acc')
+        self.acc3 = graph.get_tensor_by_name(self.name + '/acc3')
+        if self.train:
+            self.loss_weights = graph.get_tensor_by_name(self.name + '/loss_weights')
+        self.loss = graph.get_tensor_by_name(self.name + '/loss')
+        self.is_compiled = True
+        return self
 
     def run(self, sess: tf.Session, batch_data, batch_label, ops, additional_feed=None):
         feed_dict = {self.data_node: batch_data,

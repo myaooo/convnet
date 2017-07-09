@@ -222,6 +222,7 @@ class Trainer(object):
                     recorder.record_validation(valid_record)
                 self._net.save(global_step=self.global_step)
                 self.update_lr(sess, step)
+        self._net.save(global_step=self.global_step)
 
     def train(self, train_data: tuple, valid_data: tuple = None, batch_size: int = 64,
               max_steps: int = 20, checkpoint_per_step: int = 500, verbose_frequency: int = 5,

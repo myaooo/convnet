@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 
-from convnet.core import ConvNet
+from convnet.core import ConvNet, DataGenerator
 from convnet.utils import init_tf_environ, get_path
 from convnet.preprocess import prepare_data_fer2013
 from convnet.model import build_model
@@ -26,9 +26,23 @@ class EnsembleModel(object):
     def __init__(self, models):
         # check model legality
         assert isinstance(models, collections.Iterable)
+        models = list(models)
         for model in models:
             assert isinstance(model, ConvNet)
         self.models = models
+        self.graph = tf.Graph()
+        output_shape = models[0].back.output_shape
+        with self.graph.as_default():
+            self.weights = tf.get_variable('weights', shape=[len(models), *output_shape])
+
+    def fit(self, data, batch_size):
+        train_predictions = []
+        # data_generator = DataGenerator(data, batch_size, 1)
+        for model in self.models:
+            prediction = model.infer(model.sess, data[0], batch_size=batch_size)
+            train_predictions.append(prediction)
+        train_predictions = np.stack(train_predictions).T
+        labels = data[1]
 
 
 def ensemble_predict(data_generator, models, weights=None):

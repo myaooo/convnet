@@ -59,7 +59,7 @@ class InputLayer(Layer):
         :param dshape: shape of input data. [batch_size, size_x, size_y, num_channel]
         """
         super().__init__('input', 'input')
-        self.dshape = dshape
+        self.dshape = [None, *dshape]
 
     def __call__(self, input_, train=False):
         super().__call__(input_)
@@ -70,6 +70,10 @@ class InputLayer(Layer):
 
     @property
     def output_shape(self):
+        """
+
+        :return: the shape of the output of this layer, with the first dimension (batch_size) emitted.
+        """
         return list(self.dshape[1:])
 
     @property

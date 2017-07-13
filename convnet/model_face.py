@@ -51,7 +51,7 @@ def build_model(model_no, name):
 def model0(name=''):
     # Test
     model = ConvNet(name or 'Test')
-    model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
+    model.push_input_layer(dshape=[IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)
     model.push_batch_norm_layer(activation='relu')
@@ -72,7 +72,7 @@ def model0(name=''):
 def model1(name=''):
     # Network in Network
     model = ConvNet(name or 'NIN-test')
-    model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
+    model.push_input_layer(dshape=[IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     model.push_conv_layer(filter_size=[3, 3], out_channels=32, strides=[1, 1], activation='linear', has_bias=False)
     model.push_batch_norm_layer(activation='relu')
@@ -103,7 +103,7 @@ def model1(name=''):
 def model2(name=''):
     # Network in Network
     model = ConvNet(name or 'NIN2')
-    model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
+    model.push_input_layer(dshape=[IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[2, 2], activation='linear', has_bias=False)
     model.push_batch_norm_layer(activation='relu')
@@ -136,7 +136,7 @@ def model2(name=''):
 def model3(name=''):
     # test resnet
     model = ConvNet(name or 'ResNet')
-    model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
+    model.push_input_layer(dshape=[IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     # model.push_conv_layer(filter_size=[7, 7], out_channels=64, strides=[1, 1], activation='linear', has_bias=False)
     # model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)
@@ -170,7 +170,7 @@ def model3(name=''):
 def model4(name=''):
     # test resnet
     model = ConvNet(name or 'ResBN')
-    model.push_input_layer(dshape=[None, IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
+    model.push_input_layer(dshape=[IMG_SIZE[0], IMG_SIZE[1], CHANNELS])
     model.push_augment_layer(4, 4, True, True)
     # model.push_conv_layer(filter_size=[7, 7], out_channels=64, strides=[1, 1], activation='linear', has_bias=False)
     model.push_conv_layer(filter_size=[3, 3], out_channels=16, strides=[1, 1], activation='linear', has_bias=False)

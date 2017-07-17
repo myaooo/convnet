@@ -458,8 +458,8 @@ class ResLayer(Layer):
         out_channels = self._out_channels
         # self.shape = self._filter_size + [in_channels, out_channels]
         assert len(self.net1) == 0
-        self.net1.append(InputLayer(dshape=[None] + input_shape))
-        self.net2.append(InputLayer(dshape=[None] + input_shape))
+        self.net1.append(InputLayer(dshape=input_shape))
+        self.net2.append(InputLayer(dshape=input_shape))
         if self.activate_before_residual:
             self.net1.append(BatchNormLayer(decay=self.decay, epsilon=self.epsilon,
                                             activation=self.activation, name=self.net1.name + '_bn0'))

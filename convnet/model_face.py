@@ -8,7 +8,7 @@ from convnet.preprocess import IMG_SIZE, CHANNELS, NUM_LABELS, prepare_data_fer2
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_integer('model', 1,
+tf.app.flags.DEFINE_string('model', 'model1',
                             """The number of model as defined in the script""")
 tf.app.flags.DEFINE_integer('epoch', 30,
                             """The number of epochs to run""")
@@ -41,8 +41,9 @@ N = TRAIN_SIZE
 
 def build_model(model_no, name):
     print("Building model", FLAGS.model)
-    models = [model0, model1, model2, model3, model4]
-    model = models[model_no](name)
+    # models = [model0, model1, model2, model3, model4]
+    # model = models[model_no](name)
+    model = eval(FLAGS.model + '("' + FLAGS.name + '")')
     model.loss_func = 'sparse_softmax'
     model.compile()
     return model
@@ -220,7 +221,7 @@ def get_lr_protocol(protocol, epoch_size):
         raise ValueError("argument 'protocol' needs to be 'small' or 'medium' or 'large'!")
 
 
-def eval(model, data, batch_size):
+def evaluate(model, data, batch_size):
     logs = model.eval(data, batch_size)
     print('[Test Set] Loss: {:.3f}, Acc: {:.2%}, eval num: {:d}'.format(
         logs['loss'], logs['acc'], len(data[0]) // batch_size * batch_size ))
@@ -249,7 +250,7 @@ def main():
     else:
         model.restore_weights()
     if FLAGS.test:
-        eval(model, all_data['test'], FLAGS.batch_size)
+        evaluate(model, all_data['test'], FLAGS.batch_size)
 
 
 if __name__ == '__main__':

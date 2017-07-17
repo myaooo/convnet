@@ -95,22 +95,27 @@ class AugmentLayer(Layer):
 
     def __call__(self, input_, train=False):
         prev_shape = self.prev.output_shape
-        if train:
+        def augment():
+            result = input_
             if self.padding > 0:
-                input_ = tf.map_fn(lambda img: tf.image.resize_image_with_crop_or_pad(
-                    img, prev_shape[0] + self.padding, prev_shape[1] + self.padding), input_)
+                result = tf.map_fn(lambda img: tf.image.resize_image_with_crop_or_pad(
+                    img, prev_shape[0] + self.padding, prev_shape[1] + self.padding), result)
             if self.crop > 0:
-                input_ = tf.map_fn(lambda img: tf.random_crop(img, self.output_shape), input_)
+                result = tf.map_fn(lambda img: tf.random_crop(img, self.output_shape), result)
             if self.horizontal_flip:
-                input_ = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), input_)
+                result = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), result)
+            return result
         # Brightness/saturation/constrast provides small gains .2%~.5% on cifar.
         # image = tf.image.random_brightness(image, max_delta=63. / 255.)
         # image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
         # image = tf.image.random_contrast(image, lower=0.2, upper=1.8)
-        else:
+        def nontrain():
             diff = self.padding - self.crop
             if diff != 0:
-                input_ = tf.image.resize_image_with_crop_or_pad(input_, self.output_shape[0], self.output_shape[1])
+                return tf.image.resize_image_with_crop_or_pad(input_, self.output_shape[0], self.output_shape[1])
+            return input_
+
+        input_ = tf.cond(train, augment, nontrain)
         if self.per_image_standardize:
             input_ = tf.map_fn(tf.image.per_image_standardization, input_)
         return input_
@@ -261,12 +266,12 @@ class DropoutLayer(Layer):
         self._output_shape = None
 
     def __call__(self, input_, train=True):
-        if not train:
-            return input_
+        # if not train:
+        #     return input_
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
             keep_prob = tf.constant(self.keep_prob, dtype=Float32, name='keep_prob')
-            return tf.nn.dropout(input_, keep_prob, name='dropout')
+            return tf.cond(train, lambda: tf.nn.dropout(input_, keep_prob, name='dropout'), lambda: input_)
 
     def compile(self):
         return

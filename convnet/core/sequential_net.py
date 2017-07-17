@@ -75,7 +75,13 @@ class SequentialNet(DoublyLinkedList):
             cur = cur.next
         self.is_compiled = True
 
-    def __call__(self, data, train=True):
+    def layers(self):
+        cur = self.front
+        while cur != self.end:
+            yield cur
+            cur = cur.next
+
+    def __call__(self, data, train):
         cur = self.front
         results = data
         while cur != self.end:

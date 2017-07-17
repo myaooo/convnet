@@ -14,6 +14,7 @@ class DataGenerator(object):
         self.epoch_num = epoch_num
         self._epoch_size = self.n // self.batch_size
         self.indices = np.arange(0, self.n)
+        self.shuffle = shuffle
         if shuffle:
             np.random.shuffle(self.indices)
 
@@ -29,16 +30,25 @@ class DataGenerator(object):
         return self._epoch_size
 
     def get_indices_of_next_batch(self):
-        if self.i > self.epoch_num * self.epoch_size:
+        """
+        A method to compute the indices of the next batch.
+        This method is intended to be called by __next__()
+        :return:
+        """
+        if self.i >= self.epoch_num * self.epoch_size:
             raise StopIteration()
         step = self.i % self._epoch_size
         start = step * self.batch_size
         indices = self.indices[start:(start + self.batch_size)]
-        self.i += 1
+        if (self.i+1) % self.epoch_size == 0:
+            indices = self.indices[start:]
+            if self.shuffle: # shuffle again
+                np.random.shuffle(self.indices)
         return indices
 
     def __next__(self):
         indices = self.get_indices_of_next_batch()
+        self.i += 1
         return self.X[indices]
 
     def __iter__(self):
@@ -55,6 +65,7 @@ class ImageDataGenerator(DataGenerator):
 
     def __next__(self):
         indices = self.get_indices_of_next_batch()
+        self.i += 1
         return self.X[indices], self.Y[indices]
 
 

@@ -231,11 +231,11 @@ def train(model, train_data, valid_data, batch_size, epoch, protocol):
     print("prepare training....")
     epoch_size = N // batch_size
     trainer = Trainer(model)
-    trainer.add_regularizer('l2', 1e-4)
+    trainer.add_regularizer('l2', 1e-3)
     trainer.set_learning_rate(update_func=get_lr_protocol(protocol, epoch_size))
     trainer.set_optimizer('Momentum', 0.9)
     if FLAGS.weighted_loss:
-        trainer.weighted_loss(lambda size: 1/(size**0.5))
+        trainer.weighted_loss(lambda size: 1/(size))
     print("start training....")
     trainer.train(train_data, valid_data, batch_size,
                   epoch * N // batch_size, FLAGS.checkpoint_per_step, 5)

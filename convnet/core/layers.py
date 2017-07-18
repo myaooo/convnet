@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.layers as tflayers
 
 from convnet.core.sequential_net import SequentialNet, Layer
 from convnet.core.config import data_type, weight_keys, bias_keys, local_keys, Float32
@@ -414,7 +415,7 @@ class BatchNormLayer(Layer):
         super().__call__(input, train)
         reuse = True if self.n_calls > 1 else None
         with tf.variable_scope(self.name, reuse=reuse):
-            results = tf.contrib.layers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=False,
+            results = tflayers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=False, trainable=False,
                                                    is_training=train, reuse=reuse, scope='bn_op',
                                                    variables_collections=local_keys)
             return get_activation(self.activation)(results)

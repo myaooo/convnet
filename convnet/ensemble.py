@@ -1,7 +1,7 @@
 import collections
 import tensorflow as tf
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+# from sklearn.linear_model import LogisticRegression
 
 from convnet.core import ConvNet, Trainer, data_type, top_k_acc
 from convnet.core.config import Int32, save_keys

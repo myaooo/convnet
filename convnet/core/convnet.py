@@ -213,9 +213,10 @@ class ConvNet(SequentialNet):
         if checkpoint is None:
             raise FileNotFoundError('Cannot find model checkpoint from "{:s}"'.format(path))
         with self.graph.as_default():
-            self._saver = tf.train.import_meta_graph(checkpoint + '.meta', *args, **kwargs)
+            tf.train.import_meta_graph(checkpoint + '.meta', *args, **kwargs)
+        self._finalize()
         print("Model graph restored from {}.".format(get_path(checkpoint, absolute=True)))
-        self.finalized = True
+        # self.finalized = True
 
     @property
     def sess(self):
@@ -235,10 +236,11 @@ class ConvNet(SequentialNet):
         if self.finalized:
             return
         with self.graph.as_default():
-            self._init_op = tf.variables_initializer(tf.global_variables(), name='init')
+            self._init_op = tf.variables_initializer(
+                tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/'), name='init')
             variables = []
             for key in save_keys:
-                variables += tf.get_collection(key, scope=self.name)
+                variables += tf.get_collection(key, scope=self.name + '/')
             self._saver = tf.train.Saver(variables)
         self.finalized = True
 

@@ -7,7 +7,7 @@ import convnet.model_face as model_pool
 
 def test():
     # model_list = [model_pool.model0, model_pool.model0]
-    name_list = ['Test2']
+    name_list = ['Test2', 'Test1']
     models = [ConvNet(name) for name in name_list]
     graph = tf.Graph()
     model = EnsembleModel(models, [IMG_SIZE[0], IMG_SIZE[1], CHANNELS], name='ensemble', graph=graph)

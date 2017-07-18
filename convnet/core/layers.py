@@ -1,9 +1,54 @@
+import math
 import numpy as np
 import tensorflow as tf
+import tensorflow.contrib.layers as tflayers
 
-from cnn.convnet.sequential_net import SequentialNet, Layer
-from cnn.convnet.utils import get_activation, output_shape
-from cnn.convnet.config import data_type, weight_keys, bias_keys, local_keys, Float32
+from convnet.core.sequential_net import SequentialNet, Layer
+from convnet.core.config import data_type, weight_keys, bias_keys, local_keys, Float32
+
+
+__str2activation = {
+    'linear': lambda x: x,
+    'relu': lambda x: tf.nn.relu(x, name='relu'),
+    'relu6': lambda x: tf.nn.relu6(x, name='relu6'),
+    'elu': lambda x: tf.nn.elu(x, name='elu'),
+    'tan': lambda x: tf.tanh(x, name='tanh'),
+    'sigmoid': lambda x: tf.sigmoid(x, name='sigmoid'),
+}
+
+
+def get_activation(str='relu'):
+    """
+     A utility function to get specified activation function
+    :param str: a string which should be among the keys of __str2activation, or a user defined callable function
+    :return: a callable function
+    """
+    if callable(str):
+        return str
+    if str in __str2activation:
+        return __str2activation[str]
+    print('No matching activation function found. Using ReLU by default.\n')
+    return __str2activation['relu']
+
+
+def output_shape(input_shape, kernel_shape, strides, padding):
+    """
+    Given specific conditions calculate the output shape of a convolutional layer
+    :param input_shape: input shape, e.g.: [28, 28, 3]
+    :param kernel_shape: kernel/filter shape, e.g.: [2,2]
+    :param strides: the marching strides shape. e.g.: [1,2,2,1]
+    :param padding: a tring indicating padding type. 'SAME' or 'VALID'
+    :return: the output shape
+    """
+    if padding == 'SAME':
+        x = math.ceil(input_shape[0] / float(strides[1]))
+        y = math.ceil(input_shape[1] / float(strides[2]))
+        return x, y
+
+    elif padding == 'VALID':
+        x = math.ceil((input_shape[0] - kernel_shape[0] + 1) / float(strides[1]))
+        y = math.ceil((input_shape[1] - kernel_shape[1] + 1) / float(strides[2]))
+        return x, y
 
 
 class InputLayer(Layer):
@@ -15,9 +60,9 @@ class InputLayer(Layer):
         :param dshape: shape of input data. [batch_size, size_x, size_y, num_channel]
         """
         super().__init__('input', 'input')
-        self.dshape = dshape
+        self.dshape = [None, *dshape]
 
-    def __call__(self, input_, train=False, name=''):
+    def __call__(self, input_, train=False):
         super().__call__(input_)
         return input_
 
@@ -26,6 +71,10 @@ class InputLayer(Layer):
 
     @property
     def output_shape(self):
+        """
+
+        :return: the shape of the output of this layer, with the first dimension (batch_size) emitted.
+        """
         return list(self.dshape[1:])
 
     @property
@@ -45,24 +94,29 @@ class AugmentLayer(Layer):
         self.per_image_standardize = per_image_standardize
         self._shape = None
 
-    def __call__(self, input_, train=False, name=''):
+    def __call__(self, input_, train=False):
         prev_shape = self.prev.output_shape
-        if train:
+        def augment():
+            result = input_
             if self.padding > 0:
-                input_ = tf.image.resize_image_with_crop_or_pad(
-                    input_, prev_shape[0] + self.padding, prev_shape[1] + self.padding)
+                result = tf.map_fn(lambda img: tf.image.resize_image_with_crop_or_pad(
+                    img, prev_shape[0] + self.padding, prev_shape[1] + self.padding), result)
             if self.crop > 0:
-                input_ = tf.map_fn(lambda img: tf.random_crop(img, self.output_shape), input_)
+                result = tf.map_fn(lambda img: tf.random_crop(img, self.output_shape), result)
             if self.horizontal_flip:
-                input_ = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), input_)
+                result = tf.map_fn(lambda img: tf.image.random_flip_left_right(img), result)
+            return result
         # Brightness/saturation/constrast provides small gains .2%~.5% on cifar.
         # image = tf.image.random_brightness(image, max_delta=63. / 255.)
         # image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
         # image = tf.image.random_contrast(image, lower=0.2, upper=1.8)
-        else:
+        def nontrain():
             diff = self.padding - self.crop
             if diff != 0:
-                input_ = tf.image.resize_image_with_crop_or_pad(input_, self.output_shape[0], self.output_shape[1])
+                return tf.image.resize_image_with_crop_or_pad(input_, self.output_shape[0], self.output_shape[1])
+            return input_
+
+        input_ = tf.cond(train, augment, nontrain)
         if self.per_image_standardize:
             input_ = tf.map_fn(tf.image.per_image_standardization, input_)
         return input_
@@ -118,10 +172,10 @@ class ConvLayer(Layer):
         self._is_compiled = False
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
-            results = tf.nn.conv2d(input_, self.filters, self.strides, self.padding, name='conv' + name)
+            results = tf.nn.conv2d(input_, self.filters, self.strides, self.padding, name='conv')
             if self.has_bias:
                 results = results + self.bias
             return self.activation(results)
@@ -135,7 +189,7 @@ class ConvLayer(Layer):
         self.shape = self._filter_shape + [in_channels, out_channels]
 
         # Initialize Variables
-        with tf.variable_scope(name=self.name) as scope:
+        with tf.variable_scope(self.name) as scope:
             n = self.shape[0] * self.shape[1] * out_channels
             self.filters = tf.get_variable('filters', shape=self.shape, dtype=self.dtype,
                                            initializer=tf.random_normal_initializer(
@@ -184,10 +238,10 @@ class PoolLayer(Layer):
         self.padding = padding
         self.name = name
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
-            return self.pool_func(input_, self._filter_shape, self.strides, self.padding, name=self.type + name)
+            return self.pool_func(input_, self._filter_shape, self.strides, self.padding, name=self.type)
 
     def compile(self):
         return
@@ -212,13 +266,13 @@ class DropoutLayer(Layer):
         self.keep_prob = keep_prob
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
-        if not train:
-            return input_
+    def __call__(self, input_, train=True):
+        # if not train:
+        #     return input_
         with tf.variable_scope(self.name, reuse=True):
             super().__call__(input_)
             keep_prob = tf.constant(self.keep_prob, dtype=Float32, name='keep_prob')
-            return tf.nn.dropout(input_, keep_prob, name='dropout' + name)
+            return tf.cond(train, lambda: tf.nn.dropout(input_, keep_prob, name='dropout'), lambda: input_)
 
     def compile(self):
         return
@@ -239,12 +293,12 @@ class FlattenLayer(Layer):
         super().__init__('flatten', name)
         self._output_shape = None
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
-            super(FlattenLayer, self).__call__(input_)
+            super().__call__(input_)
             shape = input_.get_shape().as_list()
             shape0 = shape[0] if shape[0] is not None else -1
-            return tf.reshape(input_, [shape0, shape[1] * shape[2] * shape[3]], name='flatten' + name)
+            return tf.reshape(input_, [shape0, shape[1] * shape[2] * shape[3]], name='flatten')
 
     def compile(self):
         return
@@ -267,9 +321,9 @@ class PadLayer(Layer):
         self._output_shape = None
         self.paddings = paddings
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         with tf.variable_scope(self.name, reuse=True):
-            super(PadLayer, self).__call__(input_)
+            super().__call__(input_)
             return tf.pad(input_, self.paddings)
 
     def compile(self):
@@ -301,8 +355,8 @@ class FullyConnectedLayer(Layer):
         self.weights = None
         self.bias = None
 
-    def __call__(self, input_, train=True, name=''):
-        with tf.variable_scope(name=self.name, reuse=True):
+    def __call__(self, input_, train=True):
+        with tf.variable_scope(self.name, reuse=True):
             input_ = super().__call__(input_)
             result = tf.matmul(input_, self.weights)
             if self.has_bias:
@@ -317,7 +371,7 @@ class FullyConnectedLayer(Layer):
         out_channels = self._out_channels
         self.shape = [in_channels, out_channels]
         # Initialize Variables
-        with tf.variable_scope(name=self.name) as scope:
+        with tf.variable_scope(self.name) as scope:
             self.weights = tf.get_variable('weights', shape=self.shape, dtype=self.dtype,
                                            initializer=tf.uniform_unit_scaling_initializer(factor=1.0,
                                                                                            dtype=self.dtype),
@@ -357,11 +411,11 @@ class BatchNormLayer(Layer):
             self._output_shape = self.prev.output_shape
         return self._output_shape
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         super().__call__(input, train)
         reuse = True if self.n_calls > 1 else None
         with tf.variable_scope(self.name, reuse=reuse):
-            results = tf.contrib.layers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=True,
+            results = tflayers.batch_norm(input_, decay=self.decay, epsilon=self.epsilon, scale=False, trainable=False,
                                                    is_training=train, reuse=reuse, scope='bn_op',
                                                    variables_collections=local_keys)
             return get_activation(self.activation)(results)
@@ -391,11 +445,11 @@ class ResLayer(Layer):
         self.net1 = SequentialNet(name)
         self.net2 = SequentialNet(name + '_residue')
 
-    def __call__(self, input_, train=True, name=''):
+    def __call__(self, input_, train=True):
         assert self.is_compiled
         with tf.variable_scope(self.name):
-            results = self.net1(input_, train, 'pipe')
-            res = self.net2(input_, train, 'res')
+            results = self.net1(input_, train)
+            res = self.net2(input_, train)
             return res + results
 
     def compile(self):
@@ -405,27 +459,26 @@ class ResLayer(Layer):
         out_channels = self._out_channels
         # self.shape = self._filter_size + [in_channels, out_channels]
         assert len(self.net1) == 0
-        self.net1.append(InputLayer(dshape=[None] + input_shape))
-        self.net2.append(InputLayer(dshape=[None] + input_shape))
+        self.net1.append(InputLayer(dshape=input_shape))
+        self.net2.append(InputLayer(dshape=input_shape))
         if self.activate_before_residual:
             self.net1.append(BatchNormLayer(decay=self.decay, epsilon=self.epsilon,
                                             activation=self.activation, name=self.net1.name + '_bn0'))
         self.net1.append(ConvLayer(self._filter_size, out_channels, self.strides,
-                                   self.net1.name + '_conv1', activation='linear',
-                                   has_bias=False))
+                                   activation='linear', has_bias=False, name=self.net1.name + '_conv1'))
         self.net1.append(BatchNormLayer(decay=self.decay, epsilon=self.epsilon,
                                         activation=self.activation, name=self.net1.name + 'bn1'))
         self.net1.append(ConvLayer(self._filter_size, out_channels, [1, 1],
-                                   activation='linear', has_bias=False,
-                                   name=self.net1.name + '_conv2'))
+                                   activation='linear', has_bias=False, name=self.net1.name + '_conv2'))
 
         if in_channels != out_channels:
             self.net2.append(ConvLayer(self.strides, out_channels, self.strides,
                                        activation='linear', has_bias=False,
                                        name=self.net2.name + 'shortcut'))
 
-        for net in [self.net1, self.net2]:
-            net.compile()
+        with tf.variable_scope(self.name) as scope:
+            for net in [self.net1, self.net2]:
+                net.compile()
         self._is_compiled = True
 
     @property
@@ -473,6 +526,7 @@ class ResBottleNeckLayer(ResLayer):
         if in_channels != out_channels:
             self.net2.append(ConvLayer(self.strides, out_channels, self.strides, activation='linear',
                                        has_bias=False, name=self.net2.name + 'shortcut'))
-        for net in [self.net1, self.net2]:
-            net.compile()
+        with tf.variable_scope(self.name) as scope:
+            for net in [self.net1, self.net2]:
+                net.compile()
         self._is_compiled = True

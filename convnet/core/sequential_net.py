@@ -15,7 +15,7 @@ class Layer(ListNode):
         self.name = name
         self._call_counter = 0
 
-    def __call__(self, input_, train=False, name=''):
+    def __call__(self, input_, train=False):
         """
         Call this layer will create an operation,
         which take use the layer to process the input data and return the results.
@@ -75,10 +75,16 @@ class SequentialNet(DoublyLinkedList):
             cur = cur.next
         self.is_compiled = True
 
-    def __call__(self, data, train=True, name=''):
+    def layers(self):
+        cur = self.front
+        while cur != self.end:
+            yield cur
+            cur = cur.next
+
+    def __call__(self, data, train):
         cur = self.front
         results = data
         while cur != self.end:
-            results = cur(results, train, name)
+            results = cur(results, train)
             cur = cur.next
         return results

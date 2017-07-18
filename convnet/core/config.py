@@ -11,6 +11,7 @@ Float64 = tf.float64
 Int32 = tf.int32
 Int64 = tf.int64
 # Int = Int32
+update_ops = tf.GraphKeys.UPDATE_OPS
 global_keys = [tf.GraphKeys.GLOBAL_VARIABLES]
 local_keys = [tf.GraphKeys.LOCAL_VARIABLES]
 weight_keys = global_keys + [tf.GraphKeys.WEIGHTS]

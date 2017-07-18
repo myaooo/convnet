@@ -101,7 +101,7 @@ class EnsembleModel(ConvNet):
                     net.restore_weights(self._sess)
         return self._sess
 
-    def fit(self, data, batch_size, max_steps=10000, lr=1.0, decay=0.9, checkpoint_per_point=500,
+    def fit(self, data, valid_data, batch_size, max_steps=10000, lr=1.0, decay=0.9, checkpoint_per_point=500,
             verbose_frequency=5):
         train_size = len(data[0])
         epoch_size = train_size // batch_size
@@ -114,7 +114,7 @@ class EnsembleModel(ConvNet):
         # predictions = np.stack(predictions, 2)
         # labels = data[1]
         # print('prediction shape:', predictions.shape)
-        self.trainer.train(data, batch_size=batch_size, max_steps=max_steps,
+        self.trainer.train(data, valid_data, batch_size=batch_size, max_steps=max_steps,
                            checkpoint_per_step=checkpoint_per_point, verbose_frequency=verbose_frequency)
         self.save(self.sess)
 

@@ -14,8 +14,9 @@ def test():
     graph = tf.Graph()
     model = EnsembleModel(models, [IMG_SIZE[0], IMG_SIZE[1], CHANNELS], name='ensemble', graph=graph)
 
-    data = prepare_data_fer2013()
-    model.fit(data['train'], batch_size=128, checkpoint_per_point=100, verbose_frequency=5)
+    data = prepare_data_fer2013(test=True)
+    model.fit(data['train'], data['valid'], batch_size=128, checkpoint_per_point=500, verbose_frequency=5, max_steps=2000)
+    model_pool.evaluate(model, data['test'], 128)
 
 
 if __name__ == '__main__':

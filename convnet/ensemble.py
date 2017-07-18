@@ -89,11 +89,10 @@ class EnsembleModel(ConvNet):
     def sess(self):
         if self._sess is None or self._sess._closed:
             with self.graph.as_default():
-                variables = []
-                for key in save_keys:
-                    variables += tf.get_collection(key, self.name)
+                # variables = []
+                variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/')
                 self._saver = tf.train.Saver(variables)
-                var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
+                var_list = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/')
                 init_op = tf.variables_initializer(var_list=var_list)
                 self._sess = tf.Session(graph=self.graph)
                 self._sess.run(init_op)

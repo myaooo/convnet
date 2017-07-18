@@ -194,17 +194,17 @@ class ConvNet(SequentialNet):
         path = path if path is not None else os.path.join(self.logdir, 'model')
         before_save(path)
         sess = sess or self.sess
-        checkpoint = self._saver.save(sess, path, global_step)
+        checkpoint = self.saver.save(sess, path, global_step)
         print("Model variables saved to {}.".format(get_path(checkpoint, absolute=True)))
 
     def restore_weights(self, sess=None, path=None):
-        self._finalize()
+        # self._finalize()
         path = path if path is not None else self.logdir
         checkpoint = tf.train.latest_checkpoint(path)
         if checkpoint is None:
             raise FileNotFoundError('Cannot find model checkpoint from "{:s}"'.format(path))
         sess = sess or self.sess
-        self._saver.restore(sess, checkpoint)
+        self.saver.restore(sess, checkpoint)
         print("Model variables restored from {}.".format(get_path(checkpoint, absolute=True)))
 
     def restore_graph_from_meta(self, path=None, *args, **kwargs):
@@ -214,35 +214,52 @@ class ConvNet(SequentialNet):
             raise FileNotFoundError('Cannot find model checkpoint from "{:s}"'.format(path))
         with self.graph.as_default():
             tf.train.import_meta_graph(checkpoint + '.meta', *args, **kwargs)
-        self._finalize()
+        # self._finalize()
         print("Model graph restored from {}.".format(get_path(checkpoint, absolute=True)))
         # self.finalized = True
 
     @property
     def sess(self):
-        self._finalize()
+        # self._finalize()
         if self._sess is None or self._sess._closed:
             self._sess = tf.Session(graph=self.graph, config=config_proto())
-            if self._init_op is not None:
-                self._sess.run(self._init_op)
+            with self.graph.as_default():
+                with tf.name_scope(self.name):
+                    self._init_op = tf.variables_initializer(
+                        tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/'), name='init')
+            self._sess.run(self._init_op)
         return self._sess
 
-    def _finalize(self):
-        """
-        After all the ops and variables are claimed in the graph, explicitly finalize the graph
-        :return: None
-        """
-        # make sure the following code will be run only once
-        if self.finalized:
-            return
-        with self.graph.as_default():
-            self._init_op = tf.variables_initializer(
-                tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/'), name='init')
-            variables = []
-            for key in save_keys:
-                variables += tf.get_collection(key, scope=self.name + '/')
-            self._saver = tf.train.Saver(variables)
-        self.finalized = True
+    @property
+    def saver(self):
+        if self._saver is None:
+            with self.graph.as_default():
+                with tf.name_scope(self.name):
+                    # variables = []
+                    variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/')
+                    # for key in save_keys:
+                    #     variables += tf.get_collection(key, scope=self.name + '/')
+                    self._saver = tf.train.Saver(variables)
+        return self._saver
+
+    # def _finalize(self):
+    #     """
+    #     After all the ops and variables are claimed in the graph, explicitly finalize the graph
+    #     :return: None
+    #     """
+    #     # make sure the following code will be run only once
+    #     if self.finalized:
+    #         return
+    #     with self.graph.as_default():
+    #         with tf.name_scope(self.name):
+    #             self._init_op = tf.variables_initializer(
+    #                 tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/'), name='init')
+    #             # variables = []
+    #             variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name + '/')
+    #             # for key in save_keys:
+    #             #     variables += tf.get_collection(key, scope=self.name + '/')
+    #             self._saver = tf.train.Saver(variables)
+    #     self.finalized = True
 
     def run_with_context(self, func, *args, **kwargs):
         assert self.is_compiled

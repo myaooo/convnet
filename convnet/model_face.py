@@ -247,10 +247,13 @@ def main():
     model = build_model(FLAGS.model, FLAGS.name)
     if FLAGS.train:
         train(model, all_data['train'], all_data['valid'], FLAGS.batch_size, FLAGS.epoch, FLAGS.lr_protocol)
-    else:
-        model.restore_weights()
-    if FLAGS.test:
         evaluate(model, all_data['test'], FLAGS.batch_size)
+    if FLAGS.test:
+        model2 = ConvNet(FLAGS.name)
+        model2.compile_from_meta()
+        model2.restore_weights()
+        evaluate(model2, all_data['test'], FLAGS.batch_size)
+
 
 
 if __name__ == '__main__':
